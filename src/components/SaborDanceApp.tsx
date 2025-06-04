@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Music, LogIn, LogOut, User, Plus, Clock, MapPin, CheckCircle, X, Edit, Save, Trash2, Eye, EyeOff } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState } from 'react';
+import { Calendar, Users, Music, LogIn, LogOut, User, Plus, Clock, X, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 // Types
 interface User {
@@ -44,33 +43,6 @@ interface PerformanceTeam {
   song_title?: string;
 }
 
-// Animations variants
-const fadeInUp = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -30 }
-};
-
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const scaleHover = {
-  hover: { scale: 1.05, transition: { duration: 0.2 } },
-  tap: { scale: 0.95 }
-};
-
-const floatingCard = {
-  hover: { 
-    y: -8, 
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-    transition: { duration: 0.3 }
-  }
-};
 const languages = {
   fr: {
     // Navigation
@@ -261,16 +233,14 @@ const SaborDanceApp = () => {
   const t = languages[currentLanguage];
 
   // Données de démo
-  const [events] = useState<Event[]>([
-    {
-      id: '1',
-      name: 'Festival de Danse Latine 2025',
-      start_date: '2025-06-20',
-      end_date: '2025-06-22',
-      location: 'Convention Center',
-      required_volunteer_hours: 8
-    }
-  ]);
+  const currentEvent = {
+    id: '1',
+    name: 'Festival de Danse Latine 2025',
+    start_date: '2025-06-20',
+    end_date: '2025-06-22',
+    location: 'Convention Center',
+    required_volunteer_hours: 8
+  };
 
   const [volunteerShifts, setVolunteerShifts] = useState<VolunteerShift[]>([
     {
@@ -325,6 +295,7 @@ const SaborDanceApp = () => {
       </select>
     </div>
   );
+
   const AuthModal = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -376,7 +347,7 @@ const SaborDanceApp = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">{t.role}</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
+                    onChange={(e) => setRole(e.target.value as 'volunteer' | 'organizer' | 'team_director')}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200"
                   >
                     <option value="volunteer">{t.volunteer}</option>
@@ -441,177 +412,69 @@ const SaborDanceApp = () => {
 
   // Page d'accueil
   const HomePage = () => (
-    <motion.div 
-      className="min-h-screen bg-gray-50"
-      initial="initial"
-      animate="animate"
-      exit="exit"
-    >
+    <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-700 overflow-hidden">
         <div className="container mx-auto px-4 py-24 relative">
-          {/* Floating elements background */}
-          <motion.div
-            className="absolute top-20 left-10 w-20 h-20 bg-white/10 rounded-full"
-            animate={{ 
-              y: [0, -20, 0],
-              rotate: [0, 360]
-            }}
-            transition={{ 
-              duration: 8,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div
-            className="absolute top-40 right-20 w-12 h-12 bg-lime-400/20 rounded-full"
-            animate={{ 
-              y: [0, 15, 0],
-              x: [0, 10, 0]
-            }}
-            transition={{ 
-              duration: 6,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 2
-            }}
-          />
-          
-          <motion.div 
-            className="text-center text-white mb-16"
-            variants={fadeInUp}
-          >
-            <motion.h1 
-              className="text-7xl font-black mb-6 tracking-tight"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-            >
+          <div className="text-center text-white mb-16">
+            <h1 className="text-7xl font-black mb-6 tracking-tight">
               {t.title}
-            </motion.h1>
-            <motion.p 
-              className="text-2xl font-medium opacity-90 max-w-3xl mx-auto leading-relaxed"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-            >
-              {t.subtitle}
-            </motion.p>
-          </motion.div>
+            </h1>
+            <p className="text-2xl font-medium opacity-90 max-w-3xl mx-auto leading-relaxed">
+              La plateforme qui digitalise l&apos;expérience des congrès de danse latine
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Features Section */}
       <div className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <motion.div 
-            className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto"
-            variants={staggerContainer}
-            initial="initial"
-            animate="animate"
-          >
+          <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {/* Volunteers Card */}
-            <motion.div 
-              className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-lime-400 to-green-500 p-8 cursor-pointer"
-              variants={fadeInUp}
-              whileHover="hover"
-              whileTap="tap"
-              {...floatingCard}
-              {...scaleHover}
-            >
+            <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-lime-400 to-green-500 p-8 cursor-pointer">
               <div className="relative z-10">
-                <motion.div 
-                  className="bg-white/20 rounded-2xl p-4 w-fit mb-6"
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
-                >
+                <div className="bg-white/20 rounded-2xl p-4 w-fit mb-6">
                   <Users className="w-8 h-8 text-white" />
-                </motion.div>
+                </div>
                 <h3 className="text-3xl font-bold text-white mb-4">{t.volunteerManagement}</h3>
                 <p className="text-white/90 mb-8 text-lg leading-relaxed">
-                  {t.volunteerDesc}
+                  Organisez facilement vos créneaux bénévoles et permettez aux volontaires de s&apos;inscrire
                 </p>
-                <motion.button
+                <button
                   onClick={() => setCurrentView('volunteers')}
                   className="bg-white text-green-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 transition-all duration-200 shadow-lg hover:shadow-xl"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   {t.discover}
-                </motion.button>
+                </button>
               </div>
-              <motion.div 
-                className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-              />
-            </motion.div>
+            </div>
 
             {/* Teams Card */}
-            <motion.div 
-              className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-500 to-purple-600 p-8 cursor-pointer"
-              variants={fadeInUp}
-              whileHover="hover"
-              whileTap="tap"
-              {...floatingCard}
-              {...scaleHover}
-            >
+            <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-500 to-purple-600 p-8 cursor-pointer">
               <div className="relative z-10">
-                <motion.div 
-                  className="bg-white/20 rounded-2xl p-4 w-fit mb-6"
-                  whileHover={{ scale: 1.2, rotate: 15 }}
-                  transition={{ duration: 0.3 }}
-                >
+                <div className="bg-white/20 rounded-2xl p-4 w-fit mb-6">
                   <Music className="w-8 h-8 text-white" />
-                </motion.div>
+                </div>
                 <h3 className="text-3xl font-bold text-white mb-4">{t.teamPerformance}</h3>
                 <p className="text-white/90 mb-8 text-lg leading-relaxed">
-                  {t.teamDesc}
+                  Gérez les soumissions d&apos;équipes, répétitions techniques et spectacles
                 </p>
-                <motion.button
+                <button
                   onClick={() => setCurrentView('teams')}
                   className="bg-white text-purple-600 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 transition-all duration-200 shadow-lg hover:shadow-xl"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                 >
                   {t.discover}
-                </motion.button>
+                </button>
               </div>
-              <motion.div 
-                className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"
-                animate={{ 
-                  rotate: [0, 360],
-                  scale: [1, 1.1, 1]
-                }}
-                transition={{ 
-                  duration: 15, 
-                  repeat: Infinity, 
-                  ease: "easeInOut" 
-                }}
-              />
-            </motion.div>
+            </div>
 
             {/* Events Card */}
-            <motion.div 
-              className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 to-pink-500 p-8"
-              variants={fadeInUp}
-              whileHover="hover"
-              {...floatingCard}
-            >
+            <div className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 to-pink-500 p-8">
               <div className="relative z-10">
-                <motion.div 
-                  className="bg-white/20 rounded-2xl p-4 w-fit mb-6"
-                  animate={{ 
-                    rotateY: [0, 180, 360]
-                  }}
-                  transition={{ 
-                    duration: 4,
-                    repeat: Infinity,
-                    ease: "easeInOut"
-                  }}
-                >
+                <div className="bg-white/20 rounded-2xl p-4 w-fit mb-6">
                   <Calendar className="w-8 h-8 text-white" />
-                </motion.div>
+                </div>
                 <h3 className="text-3xl font-bold text-white mb-4">{t.eventsTitle}</h3>
                 <p className="text-white/90 mb-8 text-lg leading-relaxed">
                   {t.eventsDesc}
@@ -620,69 +483,36 @@ const SaborDanceApp = () => {
                   {t.soon}
                 </button>
               </div>
-              <motion.div 
-                className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"
-                animate={{ 
-                  rotate: [0, -360],
-                  opacity: [0.1, 0.3, 0.1]
-                }}
-                transition={{ 
-                  duration: 12, 
-                  repeat: Infinity, 
-                  ease: "linear" 
-                }}
-              />
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Bottom CTA Section */}
-      <motion.div 
-        className="py-16 bg-gray-900"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1 }}
-      >
+      <div className="py-16 bg-gray-900">
         <div className="container mx-auto px-4 text-center">
-          <motion.h2 
-            className="text-4xl font-bold text-white mb-6"
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.6 }}
-          >
+          <h2 className="text-4xl font-bold text-white mb-6">
             {t.readyTitle}
-          </motion.h2>
-          <motion.p 
-            className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.7, duration: 0.6 }}
-          >
+          </h2>
+          <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
             {t.readyDesc}
-          </motion.p>
-          <motion.button
+          </p>
+          <button
             onClick={() => setShowAuth(true)}
             className="bg-gradient-to-r from-violet-500 to-purple-600 text-white px-12 py-4 rounded-xl font-bold text-xl hover:from-violet-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.9, duration: 0.4 }}
-            whileHover={{ 
-              scale: 1.05,
-              boxShadow: "0 20px 40px rgba(139, 92, 246, 0.3)"
-            }}
-            whileTap={{ scale: 0.95 }}
           >
             {t.startFree}
-          </motion.button>
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 
   // Module Gestion Bénévoles
   const VolunteersPage = () => {
     const [showCreateShift, setShowCreateShift] = useState(false);
+    const [userVolunteerHours, setUserVolunteerHours] = useState(0);
+    const requiredHours = 8;
     const [newShift, setNewShift] = useState({
       title: '',
       description: '',
@@ -713,6 +543,12 @@ const SaborDanceApp = () => {
     };
 
     const signUpForShift = (shiftId: string) => {
+      const shift = volunteerShifts.find(s => s.id === shiftId);
+      if (shift) {
+        const shiftDuration = calculateShiftDuration(shift.start_time, shift.end_time);
+        setUserVolunteerHours(prev => prev + shiftDuration);
+      }
+      
       setVolunteerShifts(shifts =>
         shifts.map(shift =>
           shift.id === shiftId && shift.current_volunteers < shift.max_volunteers
@@ -720,6 +556,12 @@ const SaborDanceApp = () => {
             : shift
         )
       );
+    };
+
+    const calculateShiftDuration = (startTime: string, endTime: string) => {
+      const start = new Date(`2000-01-01T${startTime}`);
+      const end = new Date(`2000-01-01T${endTime}`);
+      return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
     };
 
     return (
@@ -737,6 +579,31 @@ const SaborDanceApp = () => {
               </button>
             )}
           </div>
+
+          {/* Progression des heures bénévoles */}
+          {currentUser?.role === 'volunteer' && (
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Mon Progression Bénévolat</h2>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-gray-600">Heures complétées</span>
+                <span className="font-bold text-lg">{userVolunteerHours}h / {requiredHours}h</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-gradient-to-r from-lime-500 to-green-500 h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min((userVolunteerHours / requiredHours) * 100, 100)}%` }}
+                ></div>
+              </div>
+              {userVolunteerHours >= requiredHours && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <CheckCircle size={20} />
+                    <span className="font-semibold">Félicitations ! Vos heures bénévoles sont complétées !</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid gap-6">
             {volunteerShifts.map(shift => (
@@ -772,7 +639,7 @@ const SaborDanceApp = () => {
                         onClick={() => signUpForShift(shift.id)}
                         className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
                       >
-                        S'inscrire
+                        S&apos;inscrire
                       </button>
                     )}
                   </div>
@@ -1015,7 +882,7 @@ const SaborDanceApp = () => {
                 <div className="space-y-4">
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'équipe</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l&apos;équipe</label>
                       <input
                         type="text"
                         value={newTeam.team_name}
@@ -1101,7 +968,7 @@ const SaborDanceApp = () => {
                     onClick={handleCreateTeam}
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-lg font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-200"
                   >
-                    Créer l'équipe
+                    Créer l&apos;équipe
                   </button>
                 </div>
               </div>
@@ -1189,58 +1056,27 @@ const SaborDanceApp = () => {
     </nav>
   );
 
-  // Rendu principal avec AnimatePresence
+  // Rendu principal
   const renderCurrentView = () => {
     if (!currentUser && currentView !== 'home') {
       return <HomePage />;
     }
 
-    return (
-      <AnimatePresence mode="wait">
-        {currentView === 'volunteers' && (
-          <motion.div
-            key="volunteers"
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -100 }}
-            transition={{ duration: 0.3 }}
-          >
-            <VolunteersPage />
-          </motion.div>
-        )}
-        {currentView === 'teams' && (
-          <motion.div
-            key="teams"
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -100 }}
-            transition={{ duration: 0.3 }}
-          >
-            <TeamsPage />
-          </motion.div>
-        )}
-        {currentView === 'home' && (
-          <motion.div
-            key="home"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <HomePage />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
+    switch (currentView) {
+      case 'volunteers':
+        return <VolunteersPage />;
+      case 'teams':
+        return <TeamsPage />;
+      default:
+        return <HomePage />;
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
       {renderCurrentView()}
-      <AnimatePresence>
-        {showAuth && <AuthModal />}
-      </AnimatePresence>
+      {showAuth && <AuthModal />}
     </div>
   );
 };
