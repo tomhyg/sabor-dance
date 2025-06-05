@@ -27,11 +27,16 @@ interface VolunteerSignup {
   qr_code?: string;
 }
 
-interface Event {
+interface DanceEvent {
   id: string;
   name: string;
   start_date: string;
+  end_date: string;
   location: string;
+  required_volunteer_hours: number;
+  status: 'draft' | 'live' | 'completed' | 'cancelled';
+  team_submission_deadline: string;
+  created_from_template?: string;
 }
 
 interface User {
@@ -49,8 +54,8 @@ interface VolunteersPageProps {
   setVolunteerShifts: React.Dispatch<React.SetStateAction<VolunteerShift[]>>;
   volunteerSignups: VolunteerSignup[];
   setVolunteerSignups: React.Dispatch<React.SetStateAction<VolunteerSignup[]>>;
-  events: Event[];
-  setEvents: React.Dispatch<React.SetStateAction<Event[]>>;
+  events: DanceEvent[];
+  setEvents: React.Dispatch<React.SetStateAction<DanceEvent[]>>;
 }
 
 const VolunteersPage: React.FC<VolunteersPageProps> = ({
@@ -296,14 +301,12 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   };
 
   const duplicateFromEvent = (eventId: string) => {
-    const sourceEvent = events.find(e => e.id === eventId);
+    const sourceEvent = events.find((e: DanceEvent) => e.id === eventId);
     if (sourceEvent) {
-      const newEvent: Event = {
+      const newEvent: DanceEvent = {
         ...sourceEvent,
         id: Date.now().toString(),
-        name: `${sourceEvent.name} (Copie)`,
-        start_date: sourceEvent.start_date,
-        location: sourceEvent.location
+        name: `${sourceEvent.name} (Copie)`
       };
       setEvents([...events, newEvent]);
       setShowDuplicateEvent(false);
