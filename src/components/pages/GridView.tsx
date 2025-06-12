@@ -297,7 +297,7 @@ const GridView: React.FC<GridViewProps> = ({
           <div className="text-2xl font-bold text-red-400">
             {timeBlocks.reduce((count, block) => {
               const emptyShifts = Array.from(block.shifts_by_date.values())
-                .filter(shift => shift.current_volunteers === 0).length;
+                .filter((shift: any) => shift.current_volunteers === 0).length;
               return count + emptyShifts;
             }, 0)}
           </div>
@@ -308,7 +308,7 @@ const GridView: React.FC<GridViewProps> = ({
           <div className="text-2xl font-bold text-yellow-400">
             {timeBlocks.reduce((count, block) => {
               const partialShifts = Array.from(block.shifts_by_date.values())
-                .filter(shift => {
+                .filter((shift: any) => {
                   const rate = shift.current_volunteers / shift.max_volunteers;
                   return rate > 0 && rate < 0.8;
                 }).length;
@@ -322,7 +322,7 @@ const GridView: React.FC<GridViewProps> = ({
           <div className="text-2xl font-bold text-green-400">
             {timeBlocks.reduce((count, block) => {
               const fullShifts = Array.from(block.shifts_by_date.values())
-                .filter(shift => shift.current_volunteers >= shift.max_volunteers).length;
+                .filter((shift: any) => shift.current_volunteers >= shift.max_volunteers).length;
               return count + fullShifts;
             }, 0)}
           </div>
