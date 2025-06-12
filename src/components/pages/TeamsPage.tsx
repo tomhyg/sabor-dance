@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Music, Plus, X, Play, Star, CheckCircle, Users, Target, BarChart3 } from 'lucide-react';
+import { Music, Plus, X, Play, Star, CheckCircle, Users, Target, BarChart3, Download } from 'lucide-react';
+import { exportTeamsToExcel } from '../../utils/exportUtils';
 
 interface PerformanceTeam {
   id: string;
@@ -53,6 +54,16 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
     group_size: 4,
     dance_styles: [] as string[]
   });
+
+  // Handler pour export Excel
+  const handleExportTeams = () => {
+    try {
+      exportTeamsToExcel(performanceTeams);
+      console.log('Export équipes généré avec succès');
+    } catch (error) {
+      console.error('Erreur export équipes:', error);
+    }
+  };
 
   const handleCreateTeam = () => {
     const team: PerformanceTeam = {
@@ -130,13 +141,22 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
             </div>
             
             {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
-              <button
-                onClick={() => setShowCreateTeam(true)}
-                className="group bg-gradient-to-r from-violet-500 to-purple-600 text-white px-8 py-4 rounded-xl font-bold hover:from-violet-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2"
-              >
-                <Plus size={20} />
-                {t.createTeam || 'Créer une équipe'}
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => setShowCreateTeam(true)}
+                  className="group bg-gradient-to-r from-violet-500 to-purple-600 text-white px-8 py-4 rounded-xl font-bold hover:from-violet-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2"
+                >
+                  <Plus size={20} />
+                  {t.createTeam || 'Créer une équipe'}
+                </button>
+                <button
+                  onClick={handleExportTeams}
+                  className="group bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-2xl transform hover:scale-105"
+                >
+                  <Download size={18} />
+                  Export Excel
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -177,7 +197,14 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
         {/* Liste des équipes */}
         <div className="grid gap-6">
-          {performanceTeams.map(team => (
+          {performanceTeams
+            .sort((a, b) => {
+              // Équipes en attente en priorité
+              if (a.status === 'submitted' && b.status !== 'submitted') return -1;
+              if (b.status === 'submitted' && a.status !== 'submitted') return 1;
+              return 0;
+            })
+            .map(team => (
             <div key={team.id} className="group bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8 hover:border-purple-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/10">
               <div className="flex justify-between items-start mb-6">
                 <div className="flex-1">
@@ -190,34 +217,40 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       'bg-red-500/20 text-red-300 border border-red-500/30'
                     }`}>
                       {team.status === 'draft' ? (t.draft || 'Brouillon') :
-                       team.status === 'submitted' ? (t.submitted || 'Soumise') :
+                       team.status === 'submitted' ? (t.submitted || '🚨 SOUMISE - ACTION REQUISE') :
                        team.status === 'approved' ? (t.approved || 'Approuvée') :
                        (t.rejected || 'Refusée')}
                     </span>
+                    {team.status === 'submitted' && (
+                      <span className="px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse">
+                        URGENT
+                      </span>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-gray-300 mb-4">
                     <div>
                       <span className="text-purple-400 font-semibold">{t.director || 'Directeur'}:</span>
-                      <p>{team.director_name}</p>
+                      <p className="font-medium">{team.director_name}</p>
+                      <p className="text-sm text-gray-400">{team.director_email}</p>
                     </div>
                     <div>
                       <span className="text-purple-400 font-semibold">{t.studio || 'Studio'}:</span>
-                      <p>{team.studio_name}</p>
+                      <p className="font-medium">{team.studio_name}</p>
                     </div>
                     <div>
                       <span className="text-purple-400 font-semibold">{t.city || 'Ville'}:</span>
-                      <p>{team.city}, {team.country}</p>
+                      <p className="font-medium">{team.city}, {team.country}</p>
                     </div>
                     <div>
                       <span className="text-purple-400 font-semibold">{t.groupSize || 'Taille'}:</span>
-                      <p>{team.group_size} {t.members || 'membres'}</p>
+                      <p className="font-medium">{team.group_size} {t.members || 'membres'}</p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 mb-4">
                     {team.dance_styles.map(style => (
-                      <span key={style} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm border border-purple-500/30">
+                      <span key={style} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm border border-purple-500/30 font-medium">
                         {style}
                       </span>
                     ))}
@@ -225,13 +258,24 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                   {team.song_title && (
                     <div className="text-gray-300 mb-4">
-                      <span className="text-purple-400 font-semibold">{t.song || 'Chanson'}:</span> {team.song_title}
+                      <span className="text-purple-400 font-semibold">{t.song || 'Chanson'}:</span> 
+                      <span className="font-medium ml-2">{team.song_title}</span>
+                    </div>
+                  )}
+
+                  {team.performance_video_url && (
+                    <div className="text-gray-300 mb-4">
+                      <span className="text-purple-400 font-semibold">Vidéo:</span>
+                      <button className="ml-2 text-blue-400 hover:text-blue-300 underline">
+                        Voir la vidéo
+                      </button>
                     </div>
                   )}
 
                   {team.organizer_notes && (
                     <div className="text-gray-300 mb-4">
-                      <span className="text-purple-400 font-semibold">{t.organizerNotes || 'Notes'}:</span> {team.organizer_notes}
+                      <span className="text-purple-400 font-semibold">{t.organizerNotes || 'Notes'}:</span>
+                      <p className="mt-1 text-sm bg-gray-700/30 p-3 rounded-lg">{team.organizer_notes}</p>
                     </div>
                   )}
                 </div>
@@ -241,14 +285,16 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApprove(team.id)}
-                        className="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-all duration-300 shadow-lg hover:shadow-green-500/25"
+                        className="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-all duration-300 shadow-lg hover:shadow-green-500/25 flex items-center gap-2"
                       >
+                        <CheckCircle size={16} />
                         {t.approve || 'Approuver'}
                       </button>
                       <button
                         onClick={() => handleReject(team.id)}
-                        className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-600 transition-all duration-300 shadow-lg hover:shadow-red-500/25"
+                        className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-600 transition-all duration-300 shadow-lg hover:shadow-red-500/25 flex items-center gap-2"
                       >
+                        <X size={16} />
                         {t.reject || 'Refuser'}
                       </button>
                     </div>
@@ -256,27 +302,65 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                   
                   <button
                     onClick={() => setSelectedTeam(team)}
-                    className="bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
+                    className="bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2"
                   >
+                    <Play size={16} />
                     {t.viewProfile || 'Voir détails'}
                   </button>
                 </div>
               </div>
 
+              {/* Progress bar pour équipes approuvées */}
+              {team.status === 'approved' && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-green-300 font-semibold">✅ Équipe approuvée</span>
+                    {team.performance_order && (
+                      <span className="text-green-300 font-bold">Ordre: #{team.performance_order}</span>
+                    )}
+                  </div>
+                  <p className="text-gray-400 text-sm">Prête pour le spectacle</p>
+                </div>
+              )}
+
               {team.scoring && (
                 <div className="mt-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-                  <h4 className="text-purple-300 font-semibold mb-2">Notation</h4>
+                  <h4 className="text-purple-300 font-semibold mb-2 flex items-center gap-2">
+                    <Star size={16} />
+                    Notation
+                  </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>Taille: <span className="text-white font-bold">{team.scoring.group_size_score}/10</span></div>
-                    <div>Wow Factor: <span className="text-white font-bold">{team.scoring.wow_factor_score}/10</span></div>
-                    <div>Technique: <span className="text-white font-bold">{team.scoring.technical_score}/10</span></div>
-                    <div>Total: <span className="text-purple-300 font-bold">{team.scoring.total_score}/30</span></div>
+                    <div>
+                      <span className="text-gray-400">Taille:</span>
+                      <span className="text-white font-bold ml-2">{team.scoring.group_size_score}/10</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Wow Factor:</span>
+                      <span className="text-white font-bold ml-2">{team.scoring.wow_factor_score}/10</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Technique:</span>
+                      <span className="text-white font-bold ml-2">{team.scoring.technical_score}/10</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Total:</span>
+                      <span className="text-purple-300 font-bold ml-2">{team.scoring.total_score}/30</span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           ))}
         </div>
+
+        {/* Message si aucune équipe */}
+        {performanceTeams.length === 0 && (
+          <div className="text-center py-12">
+            <Music className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-400 mb-2">Aucune équipe pour le moment</h3>
+            <p className="text-gray-500">Les équipes apparaîtront ici une fois soumises</p>
+          </div>
+        )}
 
         {/* Modal de création d'équipe */}
         {showCreateTeam && (
@@ -308,6 +392,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       value={newTeam.director_name}
                       onChange={(e) => setNewTeam({...newTeam, director_name: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                      placeholder="Nom du directeur"
                     />
                   </div>
                 </div>
@@ -319,6 +404,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     value={newTeam.director_email}
                     onChange={(e) => setNewTeam({...newTeam, director_email: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                    placeholder="email@example.com"
                   />
                 </div>
 
@@ -330,6 +416,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       value={newTeam.studio_name}
                       onChange={(e) => setNewTeam({...newTeam, studio_name: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                      placeholder="Nom du studio"
                     />
                   </div>
                   <div>
@@ -352,6 +439,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       value={newTeam.city}
                       onChange={(e) => setNewTeam({...newTeam, city: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                      placeholder="Boston"
                     />
                   </div>
                   <div>
@@ -361,6 +449,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       value={newTeam.country}
                       onChange={(e) => setNewTeam({...newTeam, country: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                      placeholder="USA"
                     />
                   </div>
                 </div>
@@ -391,7 +480,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       </span>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {['Salsa', 'Bachata', 'Kizomba', 'Zouk', 'Mambo', 'Cha-cha'].map(style => (
                       <button
                         key={style}
@@ -459,6 +548,9 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             ))}
                           </div>
                         </div>
+                        {selectedTeam.performance_video_url && (
+                          <p><strong>Vidéo:</strong> <a href={selectedTeam.performance_video_url} className="text-blue-400 hover:text-blue-300">Voir la vidéo</a></p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -502,6 +594,13 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {selectedTeam.performance_order && (
+                      <div>
+                        <h4 className="text-purple-400 font-semibold mb-2">Ordre de passage</h4>
+                        <div className="text-2xl font-bold text-green-400">#{selectedTeam.performance_order}</div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -511,17 +610,30 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     <p className="text-gray-300 bg-gray-700/30 p-4 rounded-xl">{selectedTeam.organizer_notes}</p>
                   </div>
                 )}
-                
-                {selectedTeam.performance_video_url && (
-                  <div className="mb-8">
-                    <h4 className="text-purple-400 font-semibold mb-2">Vidéo de performance</h4>
-                    <div className="bg-gray-700/30 rounded-xl p-4 flex items-center gap-4">
-                      <Play className="w-8 h-8 text-purple-400" />
-                      <span className="text-gray-300">Vidéo disponible</span>
-                      <button className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
-                        Regarder
-                      </button>
-                    </div>
+
+                {/* Actions pour organisateurs */}
+                {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && selectedTeam.status === 'submitted' && (
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => {
+                        handleApprove(selectedTeam.id);
+                        setSelectedTeam({...selectedTeam, status: 'approved'});
+                      }}
+                      className="flex-1 bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle size={20} />
+                      Approuver cette équipe
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleReject(selectedTeam.id);
+                        setSelectedTeam({...selectedTeam, status: 'rejected'});
+                      }}
+                      className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <X size={20} />
+                      Refuser cette équipe
+                    </button>
                   </div>
                 )}
               </div>

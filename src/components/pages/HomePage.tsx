@@ -39,10 +39,10 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
 
         {/* Floating Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+          {Array.from({ length: 20 }, (_, i) => (
             <div
-              key={i}
-              className={`absolute w-2 h-2 bg-white/20 rounded-full animate-pulse`}
+              key={`floating-element-${i}`}
+              className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,

@@ -22,6 +22,9 @@ import {
   Bell
 } from 'lucide-react';
 
+// Import des fonctions d'export
+import { exportVolunteersToExcel, exportTeamsToExcel, exportAllData } from '../../utils/exportUtils';
+
 interface DashboardProps {
   t: any;
   volunteerShifts: any[];
@@ -43,11 +46,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Données simulées des bénévoles avec contacts
   const volunteers = [
-    { id: 'vol1', name: 'Marie Dubois', phone: '+33 6 12 34 56 78', email: 'marie.dubois@email.com' },
-    { id: 'vol2', name: 'Paul Martin', phone: '+33 7 98 76 54 32', email: 'paul.martin@email.com' },
-    { id: 'vol3', name: 'Sophie Laurent', phone: '+33 6 45 67 89 01', email: 'sophie.laurent@email.com' },
-    { id: 'vol4', name: 'Jean Moreau', phone: '+33 7 23 45 67 89', email: 'jean.moreau@email.com' },
-    { id: 'vol5', name: 'Lisa Chen', phone: '+33 6 78 90 12 34', email: 'lisa.chen@email.com' }
+    { id: 'vol1', full_name: 'Marie Dubois', phone: '+33 6 12 34 56 78', email: 'marie.dubois@email.com' },
+    { id: 'vol2', full_name: 'Paul Martin', phone: '+33 7 98 76 54 32', email: 'paul.martin@email.com' },
+    { id: 'vol3', full_name: 'Sophie Laurent', phone: '+33 6 45 67 89 01', email: 'sophie.laurent@email.com' },
+    { id: 'vol4', full_name: 'Jean Moreau', phone: '+33 7 23 45 67 89', email: 'jean.moreau@email.com' },
+    { id: 'vol5', full_name: 'Lisa Chen', phone: '+33 6 78 90 12 34', email: 'lisa.chen@email.com' }
   ];
 
   // Calculs des métriques
@@ -62,6 +65,40 @@ const Dashboard: React.FC<DashboardProps> = ({
   const totalTeams = performanceTeams.length;
   const approvedTeams = performanceTeams.filter(t => t.status === 'approved').length;
   const pendingTeams = performanceTeams.filter(t => t.status === 'submitted').length;
+
+  // Handlers pour les exports Excel
+  const handleExportVolunteers = () => {
+    try {
+      exportVolunteersToExcel(volunteerShifts, volunteerSignups, volunteers);
+      setActionFeedback({type: 'success', message: '✅ Export bénévoles généré avec succès !'});
+    } catch (error) {
+      console.error('Erreur export bénévoles:', error);
+      setActionFeedback({type: 'error', message: '❌ Erreur lors de l\'export des bénévoles'});
+    }
+    setTimeout(() => setActionFeedback(null), 4000);
+  };
+
+  const handleExportTeams = () => {
+    try {
+      exportTeamsToExcel(performanceTeams);
+      setActionFeedback({type: 'success', message: '✅ Export équipes généré avec succès !'});
+    } catch (error) {
+      console.error('Erreur export équipes:', error);
+      setActionFeedback({type: 'error', message: '❌ Erreur lors de l\'export des équipes'});
+    }
+    setTimeout(() => setActionFeedback(null), 4000);
+  };
+
+  const handleExportAll = () => {
+    try {
+      exportAllData(volunteerShifts, volunteerSignups, volunteers, performanceTeams);
+      setActionFeedback({type: 'success', message: '✅ Export complet généré avec succès !'});
+    } catch (error) {
+      console.error('Erreur export complet:', error);
+      setActionFeedback({type: 'error', message: '❌ Erreur lors de l\'export complet'});
+    }
+    setTimeout(() => setActionFeedback(null), 4000);
+  };
 
   // Données pour les graphiques
   const volunteerProgress = volunteerShifts.map(shift => ({
@@ -117,37 +154,23 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Actions organisateur
   const handleCallVolunteer = (volunteer: any) => {
-    setActionFeedback({type: 'success', message: `Appel simulé vers ${volunteer.name}`});
+    setActionFeedback({type: 'success', message: `📞 Appel simulé vers ${volunteer.name}`});
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
   const handleSendReminder = (volunteer: any) => {
-    setActionFeedback({type: 'success', message: `Rappel envoyé à ${volunteer.name}`});
+    setActionFeedback({type: 'success', message: `📱 Rappel SMS envoyé à ${volunteer.name}`});
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
   const handleMarkAbsent = (volunteer: any) => {
-    // Marquer comme no-show dans les données
-    setActionFeedback({type: 'error', message: `${volunteer.name} marqué(e) absent(e)`});
+    setActionFeedback({type: 'error', message: `❌ ${volunteer.name} marqué(e) absent(e)`});
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => setIsRefreshing(false), 1000);
-  };
-
-  const handleExport = (type: 'csv' | 'pdf') => {
-    // Simulation export
-    const data = type === 'csv' ? 'volunteers' : 'report';
-    const blob = new Blob([`Exported ${data} data...`], { 
-      type: type === 'csv' ? 'text/csv' : 'application/pdf' 
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `sabor-dance-${data}-${new Date().toISOString().split('T')[0]}.${type}`;
-    a.click();
   };
 
   return (
@@ -262,6 +285,69 @@ const Dashboard: React.FC<DashboardProps> = ({
               <Star className="w-4 h-4 text-purple-400" />
               <span className="text-purple-400 text-sm font-semibold">{pendingTeams} en attente</span>
             </div>
+          </div>
+        </div>
+
+        {/* Actions rapides avec boutons d'export */}
+        <div className="bg-gradient-to-br from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8 mb-8">
+          <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+            <Download className="w-8 h-8 text-blue-400" />
+            Exports Excel
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <button 
+              onClick={handleExportVolunteers}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
+            >
+              <Download size={20} />
+              Export Bénévoles
+            </button>
+            
+            <button 
+              onClick={handleExportTeams}
+              className="bg-gradient-to-r from-purple-500 to-violet-600 text-white p-4 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
+            >
+              <FileText size={20} />
+              Export Équipes
+            </button>
+            
+            <button 
+              onClick={handleExportAll}
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
+            >
+              <BarChart3 size={20} />
+              Export Complet
+            </button>
+            
+            <button className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105">
+              <Target size={20} />
+              Analyse Avancée
+            </button>
+          </div>
+
+          {/* Feedback des exports */}
+          {actionFeedback && (
+            <div className={`p-4 rounded-xl border-2 ${
+              actionFeedback.type === 'success' 
+                ? 'bg-green-500/10 border-green-500/30 text-green-300' 
+                : 'bg-red-500/10 border-red-500/30 text-red-300'
+            }`}>
+              <div className="flex items-center gap-3">
+                {actionFeedback.type === 'success' ? (
+                  <CheckCircle size={20} />
+                ) : (
+                  <AlertTriangle size={20} />
+                )}
+                <span className="font-semibold text-lg">{actionFeedback.message}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+            <h4 className="text-indigo-300 font-semibold mb-2">Performance Globale</h4>
+            <div className="text-3xl font-black text-white mb-1">87%</div>
+            <p className="text-gray-300 text-sm">Taux de remplissage global</p>
           </div>
         </div>
 
@@ -415,24 +501,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ))}
               </div>
             )}
-
-            {/* Feedback actions */}
-            {actionFeedback && (
-              <div className={`mt-4 p-3 rounded-xl border ${
-                actionFeedback.type === 'success' 
-                  ? 'bg-green-500/10 border-green-500/30 text-green-300' 
-                  : 'bg-red-500/10 border-red-500/30 text-red-300'
-              }`}>
-                <div className="flex items-center gap-2">
-                  {actionFeedback.type === 'success' ? (
-                    <CheckCircle size={16} />
-                  ) : (
-                    <AlertTriangle size={16} />
-                  )}
-                  <span className="text-sm font-semibold">{actionFeedback.message}</span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Actions rapides */}
@@ -440,30 +508,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             <h3 className="text-2xl font-bold text-white mb-6">{t.quickActions || 'Actions Rapides'}</h3>
             
             <div className="space-y-4">
-              <button 
-                onClick={() => handleExport('csv')}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 flex items-center gap-3"
-              >
-                <Download size={20} />
-                Export CSV Bénévoles
-              </button>
-              
-              <button 
-                onClick={() => handleExport('pdf')}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-3"
-              >
-                <FileText size={20} />
-                Rapport PDF Complet
-              </button>
-              
               <button className="w-full bg-gradient-to-r from-purple-500 to-violet-600 text-white p-4 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-3">
                 <Calendar size={20} />
                 Planning Équipes
               </button>
               
               <button className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all duration-300 flex items-center gap-3">
-                <Target size={20} />
-                Analyse Avancée
+                <Bell size={20} />
+                Envoyer Notifications
               </button>
             </div>
 
