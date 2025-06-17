@@ -19,7 +19,7 @@ export const translations = {
     help: 'Aide',
     about: 'À propos',
     contact: 'Contact',
-
+    
     // Actions communes
     save: 'Enregistrer',
     cancel: 'Annuler',
@@ -525,7 +525,251 @@ export const translations = {
     critical: 'Critique',
     highPriority: 'Priorité haute',
     mediumPriority: 'Priorité moyenne',
-    lowPriority: 'Priorité basse'
+    lowPriority: 'Priorité basse',
+
+    // ================================
+    // ✅ NOUVELLES TRADUCTIONS CALENDAR
+    // ================================
+    calendar: {
+      // En-têtes et navigation
+      volunteerSchedule: 'Planning Bénévoles',
+      today: 'Aujourd\'hui',
+      previousWeek: 'Semaine précédente',
+      nextWeek: 'Semaine suivante',
+      
+      // Jours de la semaine (format court)
+      days: {
+        mon: 'Lun',
+        tue: 'Mar', 
+        wed: 'Mer',
+        thu: 'Jeu',
+        fri: 'Ven',
+        sat: 'Sam',
+        sun: 'Dim'
+      },
+      
+      // Légende des statuts
+      legend: {
+        title: 'Légende',
+        empty: 'Vide',
+        partiallyFilled: 'Partiellement rempli',
+        full: 'Complet',
+        draft: 'Brouillon',
+        myShifts: 'Mes créneaux',
+        cancelled: 'Annulé'
+      },
+      
+      // Statuts des créneaux
+      shiftStatus: {
+        draft: 'BROUILLON',
+        live: 'PUBLIÉ', 
+        full: 'COMPLET',
+        cancelled: 'ANNULÉ'
+      },
+      
+      // Messages d'erreur - drag & drop
+      errors: {
+        cannotMoveToPast: 'Impossible de déplacer un créneau vers une date passée',
+        cannotMoveToCurrentPastHour: 'Impossible de déplacer un créneau vers une heure passée',
+        cannotCreateInPast: 'Impossible de créer un créneau dans le passé',
+        cannotCreateAtPastHour: 'Impossible de créer un créneau à une heure passée',
+        moveError: 'Erreur lors du déplacement',
+        createError: 'Erreur lors de la création',
+        updateError: 'Erreur lors de la mise à jour',
+        statusChangeError: 'Erreur lors du changement de statut'
+      },
+      
+      // Messages de succès
+      success: {
+        shiftMoved: 'Shift déplacé avec succès',
+        shiftCreated: 'Créneau créé avec succès !',
+        shiftUpdated: 'Modifications sauvegardées !',
+        statusChanged: 'Statut changé avec succès'
+      },
+      
+      // États de chargement
+      loading: {
+        moving: 'Déplacement...',
+        creating: 'Création...',
+        updating: 'Sauvegarde...',
+        changingStatus: 'Changement...'
+      }
+    },
+    
+    // ================================
+    // MODALS
+    // ================================
+    modals: {
+      // Modal création rapide
+      quickCreate: {
+        title: 'Nouveau Créneau',
+        titleField: 'Titre',
+        titlePlaceholder: 'Créneau {hour}h',
+        volunteers: 'Bénévoles',
+        duration: 'Durée (h)',
+        durationOptions: {
+          oneHour: '1h',
+          twoHours: '2h', 
+          threeHours: '3h',
+          fourHours: '4h'
+        },
+        info: {
+          date: 'Date',
+          schedule: 'Horaire'
+        },
+        buttons: {
+          cancel: 'Annuler',
+          create: 'Créer'
+        }
+      },
+      
+      // Modal détails créneau
+      shiftDetails: {
+        title: 'Détails du créneau',
+        fields: {
+          date: 'Date',
+          schedule: 'Horaire', 
+          volunteers: 'Bénévoles',
+          status: 'Statut'
+        },
+        buttons: {
+          signUp: 'S\'inscrire',
+          unsubscribe: 'Se désinscrire', 
+          publish: 'Publier',
+          draft: 'Brouillon',
+          edit: 'Modifier',
+          close: 'Fermer'
+        },
+        messages: {
+          shiftFull: 'Créneau complet'
+        }
+      },
+      
+      // Modal édition créneau
+      editShift: {
+        title: 'Modifier le Créneau',
+        fields: {
+          title: 'Titre',
+          description: 'Description',
+          date: 'Date',
+          maxVolunteers: 'Max bénévoles', 
+          startTime: 'Heure début',
+          endTime: 'Heure fin',
+          roleType: 'Type de rôle',
+          roleTypePlaceholder: 'Ex: accueil, technique, sécurité...',
+          checkInRequired: 'Check-in requis'
+        },
+        buttons: {
+          cancel: 'Annuler',
+          saveChanges: 'Sauvegarder'
+        }
+      }
+    },
+    
+    // ================================
+    // SHIFTS
+    // ================================
+    shifts: {
+      // Labels génériques
+      hour: 'Heure',
+      volunteers: 'Bénévoles',
+      duration: 'Durée',
+      
+      // Actions
+      actions: {
+        create: 'Créer un créneau',
+        edit: 'Modifier',
+        delete: 'Supprimer',
+        publish: 'Publier',
+        unpublish: 'Dépublier',
+        signUp: 'S\'inscrire',
+        unsubscribe: 'Se désinscrire'
+      }
+    },
+
+    // ================================
+    // ✅ NOUVELLES TRADUCTIONS GRIDVIEW
+    // ================================
+    gridViewDetails: {
+      // En-têtes principaux
+      title: 'Vue Grille - Planning Bénévoles',
+      subtitle: 'Vision d\'ensemble type spreadsheet',
+      
+      // Navigation
+      previousWeek: 'Semaine précédente',
+      nextWeek: 'Semaine suivante',
+      
+      // Filtres et actions
+      filters: {
+        allRoles: 'Tous les rôles',
+        registrationDesk: 'Accueil',
+        techSupport: 'Technique',
+        security: 'Sécurité',
+        artistPickup: 'Transport',
+        cleanup: 'Nettoyage',
+        photography: 'Photographie',
+        setup: 'Installation'
+      },
+      
+      actions: {
+        exportGrid: 'Export Grille',
+        editShift: 'Modifier le créneau',
+        signUp: 'S\'inscrire'
+      },
+      
+      // Colonnes de la grille
+      columns: {
+        shifts: 'Créneaux',
+        timeSlots: 'Créneaux horaires'
+      },
+      
+      // Statuts et légende
+      legend: {
+        title: 'Légende',
+        empty: 'Vide (0-30%)',
+        partial: 'Partiel (31-80%)',
+        full: 'Complet (81-100%)',
+        draft: 'Brouillon'
+      },
+      
+      // Indicateurs visuels
+      indicators: {
+        empty: '🔴',
+        partial: '🟡',
+        full: '🟢',
+        userSignedUp: '✓ Inscrit',
+        draft: '(Brouillon)'
+      },
+      
+      // Statistiques
+      stats: {
+        emptyShifts: 'Créneaux vides',
+        partialShifts: 'Partiels',
+        fullShifts: 'Complets',
+        totalShifts: 'Total créneaux'
+      },
+      
+      // Messages d'état
+      messages: {
+        noShifts: 'Aucun créneau cette semaine',
+        noShiftsDescription: 'Les créneaux apparaîtront ici une fois créés'
+      },
+      
+      // Instructions d'utilisation
+      instructions: {
+        title: '💡 Mode d\'emploi :',
+        organizer: [
+          'Cliquez sur une case pour modifier le créneau',
+          'Les cases rouges 🔴 nécessitent une attention urgente',
+          'Utilisez les filtres pour voir un type de rôle spécifique'
+        ],
+        volunteer: [
+          'Cliquez sur une case verte/jaune pour vous inscrire',
+          'Vos inscriptions sont marquées d\'un contour bleu',
+          'Les cases rouges 🔴 ont besoin de bénévoles !'
+        ]
+      }
+    }
   },
 
   en: {
@@ -573,7 +817,7 @@ export const translations = {
     no: 'No',
     ok: 'OK',
     confirm: 'Confirm',
-
+    
     // ================================
     // HOMEPAGE
     // ================================
@@ -1051,7 +1295,251 @@ export const translations = {
     critical: 'Critical',
     highPriority: 'High Priority',
     mediumPriority: 'Medium Priority',
-    lowPriority: 'Low Priority'
+    lowPriority: 'Low Priority',
+
+    // ================================
+    // ✅ NOUVELLES TRADUCTIONS CALENDAR
+    // ================================
+    calendar: {
+      // Headers and navigation
+      volunteerSchedule: 'Volunteer Schedule',
+      today: 'Today',
+      previousWeek: 'Previous Week',
+      nextWeek: 'Next Week',
+      
+      // Days of week (short format)
+      days: {
+        mon: 'Mon',
+        tue: 'Tue',
+        wed: 'Wed', 
+        thu: 'Thu',
+        fri: 'Fri',
+        sat: 'Sat',
+        sun: 'Sun'
+      },
+      
+      // Status legend
+      legend: {
+        title: 'Legend',
+        empty: 'Empty',
+        partiallyFilled: 'Partially filled',
+        full: 'Full',
+        draft: 'Draft',
+        myShifts: 'My shifts',
+        cancelled: 'Cancelled'
+      },
+      
+      // Shift statuses
+      shiftStatus: {
+        draft: 'DRAFT',
+        live: 'LIVE',
+        full: 'FULL', 
+        cancelled: 'CANCELLED'
+      },
+      
+      // Error messages - drag & drop
+      errors: {
+        cannotMoveToPast: 'Cannot move shift to past date',
+        cannotMoveToCurrentPastHour: 'Cannot move shift to past hour',
+        cannotCreateInPast: 'Cannot create shift in the past',
+        cannotCreateAtPastHour: 'Cannot create shift at past hour',
+        moveError: 'Error moving shift',
+        createError: 'Error creating shift',
+        updateError: 'Error updating shift',
+        statusChangeError: 'Error changing status'
+      },
+      
+      // Success messages
+      success: {
+        shiftMoved: 'Shift moved successfully',
+        shiftCreated: 'Shift created successfully!',
+        shiftUpdated: 'Changes saved!',
+        statusChanged: 'Status changed successfully'
+      },
+      
+      // Loading states
+      loading: {
+        moving: 'Moving...',
+        creating: 'Creating...',
+        updating: 'Updating...',
+        changingStatus: 'Changing...'
+      }
+    },
+    
+    // ================================
+    // MODALS - ENGLISH
+    // ================================
+    modals: {
+      // Quick create modal
+      quickCreate: {
+        title: 'New Shift',
+        titleField: 'Title',
+        titlePlaceholder: 'Shift {hour}h',
+        volunteers: 'Volunteers',
+        duration: 'Duration (h)',
+        durationOptions: {
+          oneHour: '1h',
+          twoHours: '2h',
+          threeHours: '3h', 
+          fourHours: '4h'
+        },
+        info: {
+          date: 'Date',
+          schedule: 'Schedule'
+        },
+        buttons: {
+          cancel: 'Cancel',
+          create: 'Create'
+        }
+      },
+      
+      // Shift details modal
+      shiftDetails: {
+        title: 'Shift Details',
+        fields: {
+          date: 'Date',
+          schedule: 'Schedule',
+          volunteers: 'Volunteers', 
+          status: 'Status'
+        },
+        buttons: {
+          signUp: 'Sign Up',
+          unsubscribe: 'Unsubscribe',
+          publish: 'Publish',
+          draft: 'Draft',
+          edit: 'Edit',
+          close: 'Close'
+        },
+        messages: {
+          shiftFull: 'Shift is full'
+        }
+      },
+      
+      // Edit shift modal
+      editShift: {
+        title: 'Edit Shift',
+        fields: {
+          title: 'Title',
+          description: 'Description',
+          date: 'Date',
+          maxVolunteers: 'Max volunteers',
+          startTime: 'Start time',
+          endTime: 'End time', 
+          roleType: 'Role type',
+          roleTypePlaceholder: 'E.g.: reception, tech, security...',
+          checkInRequired: 'Check-in required'
+        },
+        buttons: {
+          cancel: 'Cancel',
+          saveChanges: 'Save Changes'
+        }
+      }
+    },
+    
+    // ================================
+    // SHIFTS - ENGLISH
+    // ================================
+    shifts: {
+      // Generic labels
+      hour: 'Hour',
+      volunteers: 'Volunteers',
+      duration: 'Duration',
+      
+      // Actions
+      actions: {
+        create: 'Create shift',
+        edit: 'Edit',
+        delete: 'Delete',
+        publish: 'Publish',
+        unpublish: 'Unpublish',
+        signUp: 'Sign Up',
+        unsubscribe: 'Unsubscribe'
+      }
+    },
+
+    // ================================
+    // ✅ NOUVELLES TRADUCTIONS GRIDVIEW
+    // ================================
+    gridViewDetails: {
+      // Main headers
+      title: 'Grid View - Volunteer Schedule',
+      subtitle: 'Spreadsheet-style overview',
+      
+      // Navigation
+      previousWeek: 'Previous Week',
+      nextWeek: 'Next Week',
+      
+      // Filters and actions
+      filters: {
+        allRoles: 'All roles',
+        registrationDesk: 'Registration',
+        techSupport: 'Tech Support',
+        security: 'Security',
+        artistPickup: 'Artist Pickup',
+        cleanup: 'Cleanup',
+        photography: 'Photography',
+        setup: 'Setup'
+      },
+      
+      actions: {
+        exportGrid: 'Export Grid',
+        editShift: 'Edit Shift',
+        signUp: 'Sign Up'
+      },
+      
+      // Grid columns
+      columns: {
+        shifts: 'Shifts',
+        timeSlots: 'Time Slots'
+      },
+      
+      // Status and legend
+      legend: {
+        title: 'Legend',
+        empty: 'Empty (0-30%)',
+        partial: 'Partial (31-80%)',
+        full: 'Full (81-100%)',
+        draft: 'Draft'
+      },
+      
+      // Visual indicators
+      indicators: {
+        empty: '🔴',
+        partial: '🟡',
+        full: '🟢',
+        userSignedUp: '✓ Signed Up',
+        draft: '(Draft)'
+      },
+      
+      // Statistics
+      stats: {
+        emptyShifts: 'Empty Shifts',
+        partialShifts: 'Partial',
+        fullShifts: 'Full',
+        totalShifts: 'Total Shifts'
+      },
+      
+      // Status messages
+      messages: {
+        noShifts: 'No shifts this week',
+        noShiftsDescription: 'Shifts will appear here once created'
+      },
+      
+      // Usage instructions
+      instructions: {
+        title: '💡 How to use:',
+        organizer: [
+          'Click on a cell to edit the shift',
+          'Red cells 🔴 need urgent attention',
+          'Use filters to view specific role types'
+        ],
+        volunteer: [
+          'Click on a green/yellow cell to sign up',
+          'Your signups are marked with a blue outline',
+          'Red cells 🔴 need volunteers!'
+        ]
+      }
+    }
   },
 
   es: {
@@ -1577,7 +2065,251 @@ export const translations = {
     critical: 'Crítico',
     highPriority: 'Alta prioridad',
     mediumPriority: 'Prioridad media',
-    lowPriority: 'Baja prioridad'
+    lowPriority: 'Baja prioridad',
+
+    // ================================
+    // ✅ NOUVELLES TRADUCTIONS CALENDAR
+    // ================================ 
+    calendar: {
+      // Encabezados y navegación
+      volunteerSchedule: 'Horario de Voluntarios',
+      today: 'Hoy',
+      previousWeek: 'Semana Anterior',
+      nextWeek: 'Próxima Semana',
+      
+      // Días de la semana (formato corto)
+      days: {
+        mon: 'Lun',
+        tue: 'Mar',
+        wed: 'Mié',
+        thu: 'Jue', 
+        fri: 'Vie',
+        sat: 'Sáb',
+        sun: 'Dom'
+      },
+      
+      // Leyenda de estados
+      legend: {
+        title: 'Leyenda',
+        empty: 'Vacío',
+        partiallyFilled: 'Parcialmente lleno',
+        full: 'Completo',
+        draft: 'Borrador',
+        myShifts: 'Mis turnos',
+        cancelled: 'Cancelado'
+      },
+      
+      // Estados de turnos
+      shiftStatus: {
+        draft: 'BORRADOR',
+        live: 'ACTIVO',
+        full: 'COMPLETO',
+        cancelled: 'CANCELADO'
+      },
+      
+      // Mensajes de error - arrastrar y soltar
+      errors: {
+        cannotMoveToPast: 'No se puede mover turno a fecha pasada',
+        cannotMoveToCurrentPastHour: 'No se puede mover turno a hora pasada',
+        cannotCreateInPast: 'No se puede crear turno en el pasado',
+        cannotCreateAtPastHour: 'No se puede crear turno en hora pasada',
+        moveError: 'Error al mover turno',
+        createError: 'Error al crear turno',
+        updateError: 'Error al actualizar turno',
+        statusChangeError: 'Error al cambiar estado'
+      },
+      
+      // Mensajes de éxito
+      success: {
+        shiftMoved: 'Turno movido exitosamente',
+        shiftCreated: '¡Turno creado exitosamente!',
+        shiftUpdated: '¡Cambios guardados!',
+        statusChanged: 'Estado cambiado exitosamente'
+      },
+      
+      // Estados de carga
+      loading: {
+        moving: 'Moviendo...',
+        creating: 'Creando...',
+        updating: 'Actualizando...',
+        changingStatus: 'Cambiando...'
+      }
+    },
+    
+    // ================================
+    // MODALS - ESPAÑOL
+    // ================================
+    modals: {
+      // Modal creación rápida
+      quickCreate: {
+        title: 'Nuevo Turno',
+        titleField: 'Título',
+        titlePlaceholder: 'Turno {hour}h',
+        volunteers: 'Voluntarios',
+        duration: 'Duración (h)',
+        durationOptions: {
+          oneHour: '1h',
+          twoHours: '2h',
+          threeHours: '3h',
+          fourHours: '4h'
+        },
+        info: {
+          date: 'Fecha',
+          schedule: 'Horario'
+        },
+        buttons: {
+          cancel: 'Cancelar',
+          create: 'Crear'
+        }
+      },
+      
+      // Modal detalles del turno
+      shiftDetails: {
+        title: 'Detalles del Turno',
+        fields: {
+          date: 'Fecha',
+          schedule: 'Horario',
+          volunteers: 'Voluntarios',
+          status: 'Estado'
+        },
+        buttons: {
+          signUp: 'Inscribirse',
+          unsubscribe: 'Desuscribirse',
+          publish: 'Publicar', 
+          draft: 'Borrador',
+          edit: 'Editar',
+          close: 'Cerrar'
+        },
+        messages: {
+          shiftFull: 'Turno completo'
+        }
+      },
+      
+      // Modal edición de turno
+      editShift: {
+        title: 'Editar Turno',
+        fields: {
+          title: 'Título',
+          description: 'Descripción',
+          date: 'Fecha',
+          maxVolunteers: 'Máx. voluntarios',
+          startTime: 'Hora inicio',
+          endTime: 'Hora fin',
+          roleType: 'Tipo de rol',
+          roleTypePlaceholder: 'Ej: recepción, técnico, seguridad...',
+          checkInRequired: 'Check-in requerido'
+        },
+        buttons: {
+          cancel: 'Cancelar',
+          saveChanges: 'Guardar Cambios'
+        }
+      }
+    },
+    
+    // ================================
+    // SHIFTS - ESPAÑOL  
+    // ================================
+    shifts: {
+      // Etiquetas genéricas
+      hour: 'Hora',
+      volunteers: 'Voluntarios',
+      duration: 'Duración',
+      
+      // Acciones
+      actions: {
+        create: 'Crear turno',
+        edit: 'Editar',
+        delete: 'Eliminar',
+        publish: 'Publicar',
+        unpublish: 'Despublicar',
+        signUp: 'Inscribirse',
+        unsubscribe: 'Desuscribirse'
+      }
+    },
+
+    // ================================
+    // ✅ NOUVELLES TRADUCTIONS GRIDVIEW
+    // ================================
+    gridViewDetails: {
+      // Encabezados principales
+      title: 'Vista Cuadrícula - Horario Voluntarios',
+      subtitle: 'Vista general tipo hoja de cálculo',
+      
+      // Navegación
+      previousWeek: 'Semana Anterior',
+      nextWeek: 'Próxima Semana',
+      
+      // Filtros y acciones
+      filters: {
+        allRoles: 'Todos los roles',
+        registrationDesk: 'Registro',
+        techSupport: 'Soporte Técnico',
+        security: 'Seguridad',
+        artistPickup: 'Transporte Artistas',
+        cleanup: 'Limpieza',
+        photography: 'Fotografía',
+        setup: 'Montaje'
+      },
+      
+      actions: {
+        exportGrid: 'Exportar Cuadrícula',
+        editShift: 'Editar Turno',
+        signUp: 'Inscribirse'
+      },
+      
+      // Columnas de la cuadrícula
+      columns: {
+        shifts: 'Turnos',
+        timeSlots: 'Horarios'
+      },
+      
+      // Estados y leyenda
+      legend: {
+        title: 'Leyenda',
+        empty: 'Vacío (0-30%)',
+        partial: 'Parcial (31-80%)',
+        full: 'Completo (81-100%)',
+        draft: 'Borrador'
+      },
+      
+      // Indicadores visuales
+      indicators: {
+        empty: '🔴',
+        partial: '🟡',
+        full: '🟢',
+        userSignedUp: '✓ Inscrito',
+        draft: '(Borrador)'
+      },
+      
+      // Estadísticas
+      stats: {
+        emptyShifts: 'Turnos Vacíos',
+        partialShifts: 'Parciales',
+        fullShifts: 'Completos',
+        totalShifts: 'Total Turnos'
+      },
+      
+      // Mensajes de estado
+      messages: {
+        noShifts: 'No hay turnos esta semana',
+        noShiftsDescription: 'Los turnos aparecerán aquí una vez creados'
+      },
+      
+      // Instrucciones de uso
+      instructions: {
+        title: '💡 Cómo usar:',
+        organizer: [
+          'Haz clic en una celda para editar el turno',
+          'Las celdas rojas 🔴 necesitan atención urgente',
+          'Usa los filtros para ver tipos específicos de roles'
+        ],
+        volunteer: [
+          'Haz clic en una celda verde/amarilla para inscribirte',
+          'Tus inscripciones están marcadas con un borde azul',
+          '¡Las celdas rojas 🔴 necesitan voluntarios!'
+        ]
+      }
+    }
   }
 };
 

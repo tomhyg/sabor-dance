@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Clock, Users, Plus, Edit, ChevronLeft, ChevronRight, UserPlus, X, Check, AlertCircle } from 'lucide-react';
 import { volunteerService } from '../../services/volunteerService';
+import { useTranslation } from '../../locales/translations'; // Import du système de traduction
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -36,6 +37,7 @@ interface VolunteerSignup {
 interface CalendarViewProps {
   t: any;
   currentUser: any;
+  language: 'fr' | 'en' | 'es'; // ✅ Nouveau prop pour la langue
   volunteerShifts: VolunteerShift[];
   setVolunteerShifts: React.Dispatch<React.SetStateAction<VolunteerShift[]>>;
   volunteerSignups: VolunteerSignup[];
@@ -47,6 +49,7 @@ interface CalendarViewProps {
 const CalendarView: React.FC<CalendarViewProps> = ({
   t,
   currentUser,
+  language = 'en', // ✅ Valeur par défaut
   volunteerShifts,
   setVolunteerShifts,
   volunteerSignups = [],
@@ -54,6 +57,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   onSignUp,
   onCreateShift
 }) => {
+  // ✅ Hook de traduction avec la langue passée en prop
+  const { translate } = useTranslation(language);
+  
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [draggedShift, setDraggedShift] = useState<VolunteerShift | null>(null);
   const [draggedOverSlot, setDraggedOverSlot] = useState<{day: number, hour: number} | null>(null);
@@ -81,7 +87,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Configuration du calendrier
   const hoursRange = Array.from({ length: 18 }, (_, i) => i + 6); // 6h à 23h
-  const daysOfWeek = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  
+  // ✅ Jours de la semaine traduits
+  const daysOfWeek = [
+    translate('calendar.days.mon'),
+    translate('calendar.days.tue'),
+    translate('calendar.days.wed'),
+    translate('calendar.days.thu'),
+    translate('calendar.days.fri'),
+    translate('calendar.days.sat'),
+    translate('calendar.days.sun')
+  ];
   
   // Calculer les dates de la semaine
   const getWeekDates = (date: Date) => {
@@ -116,6 +132,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   const goToToday = () => {
     setCurrentWeek(new Date());
+  };
+
+  // ✅ Fonction pour formater les dates selon la langue
+  const formatWeekRange = (startDate: Date, endDate: Date): string => {
+    const locales = {
+      fr: 'fr-FR',
+      en: 'en-US',
+      es: 'es-ES'
+    };
+    
+    const locale = locales[language];
+    const start = startDate.toLocaleDateString(locale, { day: 'numeric', month: 'long' });
+    const end = endDate.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
+    
+    return `${start} - ${end}`;
+  };
+
+  // ✅ Fonction pour formater une date selon la langue
+  const formatDate = (date: Date): string => {
+    const locales = {
+      fr: 'fr-FR',
+      en: 'en-US',
+      es: 'es-ES'
+    };
+    
+    return date.toLocaleDateString(locales[language], { 
+      day: 'numeric', 
+      month: 'short'
+    });
   };
 
   // Obtenir les créneaux pour une date et heure spécifiques
@@ -196,6 +241,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return shift.status === 'live' && !isShiftFull(shift);
   };
 
+  // ✅ Fonction pour obtenir le statut traduit
+  const getLocalizedShiftStatus = (status: string): string => {
+    switch (status) {
+      case 'draft':
+        return translate('calendar.shiftStatus.draft');
+      case 'live':
+        return translate('calendar.shiftStatus.live');
+      case 'full':
+        return translate('calendar.shiftStatus.full');
+      case 'cancelled':
+        return translate('calendar.shiftStatus.cancelled');
+      default:
+        return status;
+    }
+  };
+
   // Couleur selon le status du créneau et si l'utilisateur est inscrit
   const getShiftColor = (shift: VolunteerShift) => {
     const fillRate = shift.current_volunteers / shift.max_volunteers;
@@ -245,7 +306,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setDraggedOverSlot(null);
   };
 
-  // 🆕 DRAG & DROP avec Supabase
+  // 🆕 DRAG & DROP avec Supabase et messages traduits
   const handleDrop = async (e: React.DragEvent, dayIndex: number, hour: number) => {
     e.preventDefault();
     if (!draggedShift) return;
@@ -266,14 +327,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const todayParis = new Date(nowParis.toDateString());
     
     if (newDateParis < todayParis) {
-      alert('Impossible de déplacer un créneau vers une date passée');
+      alert(translate('calendar.errors.cannotMoveToPast'));
       setDraggedShift(null);
       setDraggedOverSlot(null);
       return;
     }
     
     if (newDateStr === currentDateStr && hour < nowParis.getHours()) {
-      alert('Impossible de déplacer un créneau vers une heure passée');
+      alert(translate('calendar.errors.cannotMoveToCurrentPastHour'));
       setDraggedShift(null);
       setDraggedOverSlot(null);
       return;
@@ -303,7 +364,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       
       if (error) {
         console.error('❌ Erreur déplacement:', error);
-        alert(`Erreur lors du déplacement: ${error.message}`);
+        alert(`${translate('calendar.errors.moveError')}: ${error.message}`);
         setDraggedShift(null);
         setDraggedOverSlot(null);
         return;
@@ -322,14 +383,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch déplacement:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('calendar.errors.moveError')}: ${getErrorMessage(error)}`);
     }
 
     setDraggedShift(null);
     setDraggedOverSlot(null);
   };
 
-  // Gestion des clics sur les créneaux
+  // Gestion des clics sur les créneaux avec messages traduits
   const handleSlotClick = (dayIndex: number, hour: number) => {
     const date = weekDates[dayIndex];
     const existingShifts = getShiftsForSlot(date, hour);
@@ -361,12 +422,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const todayParis = new Date(nowParis.toDateString());
     
     if (selectedDateParis < todayParis) {
-      alert('Impossible de créer un créneau dans le passé');
+      alert(translate('calendar.errors.cannotCreateInPast'));
       return;
     }
     
     if (dateStr === currentDateStr && hour < nowParis.getHours()) {
-      alert('Impossible de créer un créneau à une heure passée');
+      alert(translate('calendar.errors.cannotCreateAtPastHour'));
       return;
     }
     
@@ -379,7 +440,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setShowCreateModal(true);
   };
 
-  // 🆕 CRÉATION avec Supabase
+  // 🆕 CRÉATION avec Supabase et messages traduits
   const createQuickShift = async () => {
     if (!selectedSlot || isCreating) return;
 
@@ -389,7 +450,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       const shiftData = {
         event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
-        title: quickCreateData.title || `Créneau ${selectedSlot.hour}h`,
+        title: quickCreateData.title || translate('modals.quickCreate.titlePlaceholder', { hour: selectedSlot.hour.toString() }),
         description: '',
         shift_date: selectedSlot.date,
         start_time: `${selectedSlot.hour.toString().padStart(2, '0')}:00`,
@@ -408,7 +469,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       if (error) {
         console.error('❌ Erreur création shift calendrier:', error);
-        alert(`Erreur lors de la création: ${error.message}`);
+        alert(`${translate('calendar.errors.createError')}: ${error.message}`);
         return;
       }
 
@@ -436,11 +497,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       setQuickCreateData({ title: '', max_volunteers: 1, duration: 2 });
       setSelectedSlot(null);
 
-      alert('✅ Créneau créé avec succès !');
+      alert(translate('calendar.success.shiftCreated'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('calendar.errors.createError')}: ${getErrorMessage(error)}`);
     } finally {
       setIsCreating(false);
     }
@@ -461,7 +522,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setShowShiftDetails(null);
   };
 
-  // 🆕 ÉDITION avec Supabase
+  // 🆕 ÉDITION avec Supabase et messages traduits
   const saveEditShift = async () => {
     if (!showEditShift || isUpdating) return;
 
@@ -473,7 +534,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       if (error) {
         console.error('❌ Erreur mise à jour calendrier:', error);
-        alert(`Erreur lors de la mise à jour: ${error.message}`);
+        alert(`${translate('calendar.errors.updateError')}: ${error.message}`);
         return;
       }
 
@@ -499,17 +560,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         check_in_required: true
       });
 
-      alert('✅ Modifications sauvegardées !');
+      alert(translate('calendar.success.shiftUpdated'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('calendar.errors.updateError')}: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // 🆕 CHANGEMENT DE STATUT avec Supabase
+  // 🆕 CHANGEMENT DE STATUT avec Supabase et messages traduits
   const changeShiftStatus = async (shiftId: string, newStatus: 'draft' | 'live' | 'full' | 'cancelled') => {
     try {
       console.log('🔄 Changement statut:', shiftId, 'vers', newStatus);
@@ -518,7 +579,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       
       if (error) {
         console.error('❌ Erreur changement statut:', error);
-        alert(`Erreur: ${error.message}`);
+        alert(`${translate('calendar.errors.statusChangeError')}: ${error.message}`);
         return;
       }
       
@@ -531,7 +592,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       );
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('calendar.errors.statusChangeError')}: ${getErrorMessage(error)}`);
     }
   };
 
@@ -556,13 +617,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <Calendar className="w-8 h-8 text-green-400" />
-          <h2 className="text-2xl font-bold text-white">Planning Bénévoles</h2>
+          <h2 className="text-2xl font-bold text-white">{translate('calendar.volunteerSchedule')}</h2>
         </div>
         
         <div className="flex items-center gap-4">
           <button
             onClick={goToPreviousWeek}
             className="p-2 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors"
+            title={translate('calendar.previousWeek')}
           >
             <ChevronLeft className="w-5 h-5 text-gray-300" />
           </button>
@@ -571,12 +633,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             onClick={goToToday}
             className="px-4 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors font-semibold"
           >
-            Aujourd'hui
+            {translate('calendar.today')}
           </button>
           
           <button
             onClick={goToNextWeek}
             className="p-2 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors"
+            title={translate('calendar.nextWeek')}
           >
             <ChevronRight className="w-5 h-5 text-gray-300" />
           </button>
@@ -586,32 +649,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       {/* Semaine affichée */}
       <div className="text-center mb-6">
         <h3 className="text-xl text-white font-semibold">
-          {weekDates[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} - {weekDates[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          {formatWeekRange(weekDates[0], weekDates[6])}
         </h3>
       </div>
 
-      {/* Légende */}
+      {/* Légende traduite */}
       <div className="flex flex-wrap gap-4 mb-6 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-500/20 border border-red-500/40 rounded"></div>
-          <span className="text-gray-300">Vide</span>
+          <span className="text-gray-300">{translate('calendar.legend.empty')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-orange-500/20 border border-orange-500/40 rounded"></div>
-          <span className="text-gray-300">Partiellement rempli</span>
+          <span className="text-gray-300">{translate('calendar.legend.partiallyFilled')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500/20 border border-green-500/40 rounded"></div>
-          <span className="text-gray-300">Complet</span>
+          <span className="text-gray-300">{translate('calendar.legend.full')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-yellow-500/20 border border-yellow-500/40 rounded"></div>
-          <span className="text-gray-300">Brouillon</span>
+          <span className="text-gray-300">{translate('calendar.legend.draft')}</span>
         </div>
         {currentUser?.role === 'volunteer' && (
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-indigo-600 border-2 border-blue-300 rounded shadow-lg"></div>
-            <span className="text-blue-300 font-semibold">Mes créneaux</span>
+            <span className="text-blue-300 font-semibold">{translate('calendar.legend.myShifts')}</span>
           </div>
         )}
       </div>
@@ -622,12 +685,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           
           {/* Header des jours */}
           <div className="grid grid-cols-8 gap-px mb-2">
-            <div className="p-3 text-center text-gray-400 font-semibold">Heure</div>
+            <div className="p-3 text-center text-gray-400 font-semibold">{translate('shifts.hour')}</div>
             {weekDates.map((date, index) => (
               <div key={index} className="p-3 text-center">
                 <div className="text-white font-semibold">{daysOfWeek[index]}</div>
                 <div className="text-gray-400 text-sm">
-                  {date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {formatDate(date)}
                 </div>
               </div>
             ))}
@@ -748,12 +811,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* Modal création rapide */}
+      {/* Modal création rapide traduit */}
       {showCreateModal && selectedSlot && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">Nouveau Créneau</h3>
+              <h3 className="text-xl font-bold text-white">{translate('modals.quickCreate.title')}</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white">
                 <X size={20} />
               </button>
@@ -761,19 +824,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Titre</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.quickCreate.titleField')}</label>
                 <input
                   type="text"
                   value={quickCreateData.title}
                   onChange={(e) => setQuickCreateData({...quickCreateData, title: e.target.value})}
                   className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/30 rounded-lg text-white focus:ring-2 focus:ring-green-500"
-                  placeholder={`Créneau ${selectedSlot.hour}h`}
+                  placeholder={translate('modals.quickCreate.titlePlaceholder', { hour: selectedSlot.hour.toString() })}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">Bénévoles</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.quickCreate.volunteers')}</label>
                   <input
                     type="number"
                     min="1"
@@ -783,23 +846,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">Durée (h)</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.quickCreate.duration')}</label>
                   <select
                     value={quickCreateData.duration}
                     onChange={(e) => setQuickCreateData({...quickCreateData, duration: parseInt(e.target.value)})}
                     className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/30 rounded-lg text-white focus:ring-2 focus:ring-green-500"
                   >
-                    <option value={1}>1h</option>
-                    <option value={2}>2h</option>
-                    <option value={3}>3h</option>
-                    <option value={4}>4h</option>
+                    <option value={1}>{translate('modals.quickCreate.durationOptions.oneHour')}</option>
+                    <option value={2}>{translate('modals.quickCreate.durationOptions.twoHours')}</option>
+                    <option value={3}>{translate('modals.quickCreate.durationOptions.threeHours')}</option>
+                    <option value={4}>{translate('modals.quickCreate.durationOptions.fourHours')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="text-sm text-gray-400">
-                <p><strong>Date:</strong> {weekDates[selectedSlot.day].toLocaleDateString('fr-FR')}</p>
-                <p><strong>Horaire:</strong> {selectedSlot.hour}:00 - {selectedSlot.hour + quickCreateData.duration}:00</p>
+                <p><strong>{translate('modals.quickCreate.info.date')}:</strong> {formatDate(weekDates[selectedSlot.day])}</p>
+                <p><strong>{translate('modals.quickCreate.info.schedule')}:</strong> {selectedSlot.hour}:00 - {selectedSlot.hour + quickCreateData.duration}:00</p>
               </div>
 
               <div className="flex gap-3">
@@ -807,7 +870,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  Annuler
+                  {translate('modals.quickCreate.buttons.cancel')}
                 </button>
                 <button
                   onClick={createQuickShift}
@@ -818,7 +881,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
-                  {isCreating ? '🔄 Création...' : 'Créer'}
+                  {isCreating ? `🔄 ${translate('calendar.loading.creating')}` : translate('modals.quickCreate.buttons.create')}
                 </button>
               </div>
             </div>
@@ -826,7 +889,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       )}
 
-      {/* Modal détails créneau */}
+      {/* Modal détails créneau traduit */}
       {showShiftDetails && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-6 w-full max-w-lg">
@@ -842,29 +905,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-400">Date:</span>
-                  <p className="text-white font-semibold">{new Date(showShiftDetails.shift_date).toLocaleDateString('fr-FR')}</p>
+                  <span className="text-gray-400">{translate('modals.shiftDetails.fields.date')}:</span>
+                  <p className="text-white font-semibold">{new Date(showShiftDetails.shift_date).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US')}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Horaire:</span>
+                  <span className="text-gray-400">{translate('modals.shiftDetails.fields.schedule')}:</span>
                   <p className="text-white font-semibold">{showShiftDetails.start_time} - {showShiftDetails.end_time}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Bénévoles:</span>
+                  <span className="text-gray-400">{translate('modals.shiftDetails.fields.volunteers')}:</span>
                   <p className="text-white font-semibold">{showShiftDetails.current_volunteers}/{showShiftDetails.max_volunteers}</p>
                 </div>
                 <div>
-                  <span className="text-gray-400">Statut:</span>
+                  <span className="text-gray-400">{translate('modals.shiftDetails.fields.status')}:</span>
                   <p className={`font-semibold ${
                     showShiftDetails.status === 'live' ? 'text-green-400' :
                     showShiftDetails.status === 'draft' ? 'text-yellow-400' :
                     isShiftFull(showShiftDetails) ? 'text-green-400' :
                     'text-gray-400'
                   }`}>
-                    {showShiftDetails.status === 'live' ? 'PUBLIÉ' :
-                     showShiftDetails.status === 'draft' ? 'BROUILLON' :
-                     isShiftFull(showShiftDetails) ? 'COMPLET' :
-                     'ANNULÉ'}
+                    {getLocalizedShiftStatus(showShiftDetails.status)}
                   </p>
                 </div>
               </div>
@@ -917,7 +977,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             className="flex-1 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-semibold flex items-center justify-center gap-2"
                           >
                             <X size={16} />
-                            Se désinscrire
+                            {translate('modals.shiftDetails.buttons.unsubscribe')}
                           </button>
                         );
                       } else if (canSignUpForShift(showShiftDetails)) {
@@ -930,13 +990,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-semibold flex items-center justify-center gap-2"
                           >
                             <UserPlus size={16} />
-                            S'inscrire
+                            {translate('modals.shiftDetails.buttons.signUp')}
                           </button>
                         );
                       } else {
                         return (
                           <div className="flex-1 bg-gray-600/30 text-gray-400 px-4 py-2 rounded-lg font-semibold text-center border border-gray-500/30">
-                            Créneau complet
+                            {translate('modals.shiftDetails.messages.shiftFull')}
                           </div>
                         );
                       }
@@ -959,7 +1019,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           : 'bg-gray-500 text-white hover:bg-gray-600'
                       }`}
                     >
-                      {showShiftDetails.status === 'draft' ? 'Publier' : 'Brouillon'}
+                      {showShiftDetails.status === 'draft' ? translate('modals.shiftDetails.buttons.publish') : translate('modals.shiftDetails.buttons.draft')}
                     </button>
                     {showShiftDetails.status === 'draft' && (
                       <button 
@@ -967,7 +1027,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors font-semibold flex items-center justify-center gap-2"
                       >
                         <Edit size={16} />
-                        Modifier
+                        {translate('modals.shiftDetails.buttons.edit')}
                       </button>
                     )}
                   </>
@@ -978,12 +1038,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       )}
 
-      {/* Modal d'édition de créneau */}
+      {/* Modal d'édition de créneau traduit */}
       {showEditShift && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-white">Modifier le Créneau</h3>
+              <h3 className="text-2xl font-bold text-white">{translate('modals.editShift.title')}</h3>
               <button onClick={cancelEditShift} className="text-gray-400 hover:text-white">
                 <X size={20} />
               </button>
@@ -991,7 +1051,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Titre</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.title')}</label>
                 <input
                   type="text"
                   value={editShiftData.title}
@@ -1001,7 +1061,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Description</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.description')}</label>
                 <textarea
                   value={editShiftData.description}
                   onChange={(e) => setEditShiftData({...editShiftData, description: e.target.value})}
@@ -1011,7 +1071,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">Date</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.date')}</label>
                   <input
                     type="date"
                     value={editShiftData.shift_date}
@@ -1020,7 +1080,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">Max bénévoles</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.maxVolunteers')}</label>
                   <input
                     type="number"
                     min="1"
@@ -1033,7 +1093,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">Heure début</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.startTime')}</label>
                   <input
                     type="time"
                     value={editShiftData.start_time}
@@ -1042,7 +1102,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">Heure fin</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.endTime')}</label>
                   <input
                     type="time"
                     value={editShiftData.end_time}
@@ -1053,13 +1113,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Type de rôle</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('modals.editShift.fields.roleType')}</label>
                 <input
                   type="text"
                   value={editShiftData.role_type}
                   onChange={(e) => setEditShiftData({...editShiftData, role_type: e.target.value})}
                   className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/30 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ex: accueil, technique, sécurité..."
+                  placeholder={translate('modals.editShift.fields.roleTypePlaceholder')}
                 />
               </div>
 
@@ -1070,7 +1130,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   onChange={(e) => setEditShiftData({...editShiftData, check_in_required: e.target.checked})}
                   className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                 />
-                <label className="text-gray-300 font-medium">Check-in requis</label>
+                <label className="text-gray-300 font-medium">{translate('modals.editShift.fields.checkInRequired')}</label>
               </div>
 
               <div className="flex gap-3 mt-6">
@@ -1078,7 +1138,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   onClick={cancelEditShift}
                   className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  Annuler
+                  {translate('modals.editShift.buttons.cancel')}
                 </button>
                 <button
                   onClick={saveEditShift}
@@ -1089,7 +1149,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       : 'bg-blue-500 text-white hover:bg-blue-600'
                   }`}
                 >
-                  {isUpdating ? '🔄 Sauvegarde...' : 'Sauvegarder'}
+                  {isUpdating ? `🔄 ${translate('calendar.loading.updating')}` : translate('modals.editShift.buttons.saveChanges')}
                 </button>
               </div>
             </div>

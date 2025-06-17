@@ -1118,6 +1118,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             t={t}
             currentUser={currentUser}
             volunteerShifts={volunteerShifts}
+            language={language} // ← AJOUTER CETTE LIGNE
             setVolunteerShifts={setVolunteerShifts}
             volunteerSignups={volunteerSignups}
             setVolunteerSignups={setVolunteerSignups}
@@ -1142,6 +1143,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
         ) : viewMode === 'grid' ? (
           <GridView
             volunteerShifts={volunteerShifts}
+            language={language} // ← AJOUTER CETTE LIGNE
             volunteerSignups={volunteerSignups}
             currentUser={currentUser}
             onSignUp={signUpForShift}
