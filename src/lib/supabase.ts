@@ -7,6 +7,10 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
+console.log('🔍 DEBUG Supabase Config:')
+console.log('- URL:', supabaseUrl)
+console.log('- Key (premiers chars):', supabaseKey?.substring(0, 20) + '...')
+console.log('- Environnement:', process.env.NODE_ENV)
 // Types pour notre base de données
 export type User = {
   id: string

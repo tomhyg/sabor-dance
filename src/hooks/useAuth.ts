@@ -92,25 +92,48 @@ export function useAuth() {
     return { error }
   }
 
-  // Connexion rapide pour les tests (sans mot de passe)
+  // Connexion rapide pour les tests (sans mot de passe) - VERSION DEBUG
   const signInAsTestUser = async (email: string) => {
     setLoading(true)
     setError(null)
     
-    const { data: testUser } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single()
-
-    if (testUser) {
-      setUser(testUser)
-    } else {
-      setError('Utilisateur de test non trouvé')
-    }
+    console.log('🔍 DEBUG - Connexion pour:', email)
+    console.log('🔍 DEBUG - Environnement:', process.env.NODE_ENV)
     
-    setLoading(false)
-    return { user: testUser, error: testUser ? null : 'Utilisateur non trouvé' }
+    try {
+      const { data: testUser, error: queryError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single()
+
+      console.log('🔍 DEBUG - Réponse Supabase:', { testUser, queryError })
+      
+      if (queryError) {
+        console.error('🔍 DEBUG - Erreur requête:', queryError)
+        setError(`Erreur requête: ${queryError.message}`)
+        setLoading(false)
+        return { user: null, error: queryError.message }
+      }
+
+      if (testUser) {
+        console.log('✅ DEBUG - Utilisateur trouvé:', testUser)
+        setUser(testUser)
+      } else {
+        console.log('❌ DEBUG - Aucun utilisateur trouvé pour:', email)
+        setError('Utilisateur de test non trouvé')
+      }
+      
+      setLoading(false)
+      return { user: testUser, error: testUser ? null : 'Utilisateur non trouvé' }
+      
+    } catch (catchError) {
+      console.error('🔍 DEBUG - Erreur catch:', catchError)
+      const errorMessage = catchError instanceof Error ? catchError.message : 'Erreur inconnue'
+      setError(`Erreur connexion: ${errorMessage}`)
+      setLoading(false)
+      return { user: null, error: errorMessage }
+    }
   }
 
   return { 
