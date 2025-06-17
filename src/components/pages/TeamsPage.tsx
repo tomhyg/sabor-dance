@@ -87,7 +87,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
     song_artist: '',
     group_size: 4,
     dance_styles: [] as string[],
-    performance_level: null as 'beginner' | 'intermediate' | 'advanced' | 'pro' | null,
+    performance_level: null as 'beginner' | 'intermediate' | 'advanced' | 'pro' | null | undefined,
     performance_video_url: '',
     music_file: null as File | null,
     instagram: '',
@@ -107,7 +107,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
     song_artist: '',
     group_size: 4,
     dance_styles: [] as string[],
-    performance_level: null as 'beginner' | 'intermediate' | 'advanced' | 'pro' | null,
+    performance_level: null as 'beginner' | 'intermediate' | 'advanced' | 'pro' | null | undefined,
     performance_video_url: '',
     instagram: '',
     website_url: ''
