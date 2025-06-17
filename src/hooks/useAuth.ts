@@ -92,7 +92,7 @@ export function useAuth() {
     return { error }
   }
 
-  // Connexion rapide pour les tests (sans mot de passe) - VERSION DEBUG
+  // Connexion rapide pour les tests (sans mot de passe) - VERSION CORRIGÉE
   const signInAsTestUser = async (email: string) => {
     setLoading(true)
     setError(null)
@@ -101,13 +101,14 @@ export function useAuth() {
     console.log('🔍 DEBUG - Environnement:', process.env.NODE_ENV)
     
     try {
-      const { data: testUser, error: queryError } = await supabase
+      // Version plus robuste avec moins de contraintes de type
+      const { data, error: queryError } = await supabase
         .from('users')
-        .select('*')
+        .select('id, email, full_name, role, phone, profile_image, bio, location, instagram, website_url, qr_code, verified, experience_years, specialties, created_at, updated_at')
         .eq('email', email)
-        .single()
+        .maybeSingle() // Utilise maybeSingle() au lieu de single()
 
-      console.log('🔍 DEBUG - Réponse Supabase:', { testUser, queryError })
+      console.log('🔍 DEBUG - Réponse Supabase:', { data, queryError })
       
       if (queryError) {
         console.error('🔍 DEBUG - Erreur requête:', queryError)
@@ -116,16 +117,38 @@ export function useAuth() {
         return { user: null, error: queryError.message }
       }
 
-      if (testUser) {
-        console.log('✅ DEBUG - Utilisateur trouvé:', testUser)
-        setUser(testUser)
+      if (data) {
+        console.log('✅ DEBUG - Utilisateur trouvé:', data)
+        
+        // Conversion manuelle pour éviter les erreurs de type
+        const userProfile: User = {
+          id: data.id,
+          email: data.email,
+          full_name: data.full_name,
+          role: data.role,
+          phone: data.phone || undefined,
+          profile_image: data.profile_image || undefined,
+          bio: data.bio || undefined,
+          location: data.location || undefined,
+          instagram: data.instagram || undefined,
+          website_url: data.website_url || undefined,
+          qr_code: data.qr_code || undefined,
+          verified: data.verified || false,
+          experience_years: data.experience_years || undefined,
+          specialties: data.specialties || undefined,
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        }
+        
+        setUser(userProfile)
+        setLoading(false)
+        return { user: userProfile, error: null }
       } else {
         console.log('❌ DEBUG - Aucun utilisateur trouvé pour:', email)
         setError('Utilisateur de test non trouvé')
+        setLoading(false)
+        return { user: null, error: 'Utilisateur non trouvé' }
       }
-      
-      setLoading(false)
-      return { user: testUser, error: testUser ? null : 'Utilisateur non trouvé' }
       
     } catch (catchError) {
       console.error('🔍 DEBUG - Erreur catch:', catchError)
