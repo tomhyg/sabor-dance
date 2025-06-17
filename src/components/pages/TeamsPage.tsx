@@ -3,6 +3,7 @@ import { Music, Plus, X, Play, Star, CheckCircle, Users, Target, BarChart3, Down
 import { exportPerformanceTeams, quickExport } from '../../utils/exportUtils';
 import { teamService } from '../../services/teamService';
 import { PerformanceTeam } from '../../types/PerformanceTeam';
+import { useTranslation } from '../../locales/translations'; // ✅ Import du système de traduction
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -10,52 +11,10 @@ const getErrorMessage = (error: unknown): string => {
   return String(error);
 };
 
-/*
-interface PerformanceTeam {
-  id: string;
-  event_id: string;
-  team_name: string;
-  director_name: string;
-  director_email: string;
-  director_phone?: string | null;
-  studio_name?: string | null;
-  city: string;
-  state?: string | null;
-  country: string;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
-  performance_video_url?: string | null;
-  music_file_url?: string | null;
-  song_title?: string | null;
-  song_artist?: string | null;
-  group_size: number;
-  dance_styles: string[];
-  performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null | undefined;
-  performance_order?: number | null;
-  scoring?: {
-    group_size_score: number;
-    wow_factor_score: number;
-    technical_score: number;
-    style_variety_bonus: number;
-    total_score: number;
-  } | null;
-  organizer_notes?: string | null;
-  rejection_reason?: string | null;
-  can_edit_until?: string | null;
-  backup_team?: boolean | null;
-  instagram?: string | null;
-  website_url?: string | null;
-  created_by?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  submitted_at?: string | null;
-  approved_at?: string | null;
-  rejected_at?: string | null;
-}
-*/
-
 interface TeamsPageProps {
   t: any;
   currentUser: any;
+  language: 'fr' | 'en' | 'es'; // ✅ Ajout de la prop language
   performanceTeams: PerformanceTeam[];
   setPerformanceTeams: React.Dispatch<React.SetStateAction<PerformanceTeam[]>>;
 }
@@ -63,9 +22,13 @@ interface TeamsPageProps {
 const TeamsPage: React.FC<TeamsPageProps> = ({
   t,
   currentUser,
+  language = 'en', // ✅ Valeur par défaut
   performanceTeams,
   setPerformanceTeams
 }) => {
+  // ✅ Hook de traduction avec la langue passée en prop
+  const { translate } = useTranslation(language);
+  
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<PerformanceTeam | null>(null);
   const [showEditTeam, setShowEditTeam] = useState<PerformanceTeam | null>(null);
@@ -128,7 +91,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
       
       if (error) {
         console.error('❌ Erreur chargement équipes:', error);
-        alert(`Erreur: ${error.message}`);
+        alert(`${translate('error')}: ${error.message}`);
         return;
       }
 
@@ -174,7 +137,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -225,7 +188,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
       if (error) {
         console.error('❌ Erreur création équipe:', error);
-        alert(`Erreur lors de la création: ${error.message}`);
+        alert(`${translate('error')}: ${error.message}`);
         return;
       }
 
@@ -277,57 +240,56 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
       // Fermer le modal et reset
       setShowCreateTeam(false);
       resetNewTeam();
-      alert('✅ Équipe créée avec succès !');
+      alert(translate('teamCreated'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     } finally {
       setIsCreating(false);
     }
   };
 
-    // 🆕 UPLOAD FICHIER MUSICAL
+  // 🆕 UPLOAD FICHIER MUSICAL
   const handleMusicUpload = async (teamId: string, file: File) => {
     try {
-     setUploadingMusic(teamId);
+      setUploadingMusic(teamId);
       console.log('🎵 Upload fichier musical:', file.name);
 
-      // MODIFIEZ CETTE LIGNE : passez currentUser en paramètre
       const { data, error } = await teamService.uploadMusicFile(teamId, file, currentUser);
 
       if (error) {
         console.error('❌ Erreur upload musical:', error);
-        alert(`Erreur: ${getErrorMessage(error)}`);
+        alert(`${translate('fileUploadError')}: ${getErrorMessage(error)}`);
         return;
-     }
+      }
 
       console.log('✅ Fichier musical uploadé:', data);
 
       // Mettre à jour l'équipe dans la liste locale
       setPerformanceTeams(prev => 
         prev.map(team => 
-         team.id === teamId 
-           ? { 
-               ...team, 
+          team.id === teamId 
+            ? { 
+                ...team, 
                 music_file_url: data?.url || null, 
                 song_title: data?.team?.song_title || null 
               }
             : team
         )
-     );
+      );
 
-     if (data?.warning) {
-       alert(`⚠️ ${data.warning}`);
-     } else {
-       alert('✅ Fichier musical uploadé avec succès !');
+      if (data?.warning) {
+        alert(`⚠️ ${data.warning}`);
+      } else {
+        alert(translate('fileUploadSuccess'));
       }
 
-   } catch (error) {
+    } catch (error) {
       console.error('❌ Erreur catch upload:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     } finally {
-     setUploadingMusic(null);
+      setUploadingMusic(null);
     }
   };
 
@@ -340,7 +302,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
       
       if (error) {
         console.error('❌ Erreur soumission:', error);
-        alert(`Erreur: ${error.message}`);
+        alert(`${translate('error')}: ${error.message}`);
         return;
       }
 
@@ -354,11 +316,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
         )
       );
 
-      alert('✅ Équipe soumise avec succès !');
+      alert(translate('teamSubmitted'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     }
   };
 
@@ -396,7 +358,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
       if (error) {
         console.error('❌ Erreur mise à jour:', error);
-        alert(`Erreur: ${error.message}`);
+        alert(`${translate('error')}: ${error.message}`);
         return;
       }
 
@@ -411,11 +373,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
       );
 
       setShowEditTeam(null);
-      alert('✅ Modifications sauvegardées !');
+      alert(translate('teamUpdated'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdating(false);
     }
@@ -437,7 +399,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
       
       if (error) {
         console.error('❌ Erreur approbation:', error);
-        alert(`Erreur: ${error.message}`);
+        alert(`${translate('error')}: ${error.message}`);
         return;
       }
 
@@ -451,17 +413,17 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
         )
       );
 
-      alert('✅ Équipe approuvée !');
+      alert(translate('teamApproved'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     }
   };
 
   // 🆕 REFUS AVEC SUPABASE
   const handleReject = async (teamId: string) => {
-    const reason = prompt('Raison du refus (optionnel):');
+    const reason = prompt(translate('rejectionReason') + ' (optionnel):');
     
     try {
       console.log('❌ Refus équipe:', teamId);
@@ -470,7 +432,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
       
       if (error) {
         console.error('❌ Erreur refus:', error);
-        alert(`Erreur: ${error.message}`);
+        alert(`${translate('error')}: ${error.message}`);
         return;
       }
 
@@ -489,11 +451,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
         )
       );
 
-      alert('✅ Équipe refusée');
+      alert(translate('teamRejected'));
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${getErrorMessage(error)}`);
+      alert(`${translate('error')}: ${getErrorMessage(error)}`);
     }
   };
 
@@ -551,13 +513,52 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
     });
   };
 
+  // ✅ Fonction pour traduire les styles de danse
+  const translateDanceStyle = (style: string) => {
+    const styleMap: Record<string, string> = {
+      'Salsa': translate('salsa'),
+      'Bachata': translate('bachata'),
+      'Kizomba': translate('zouk'), // ou créer kizomba
+      'Zouk': translate('zouk'),
+      'Mambo': translate('mambo'),
+      'Cha-cha': translate('chacha'),
+      'Merengue': translate('merengue'),
+      'Rumba': translate('rumba'),
+      'Samba': translate('samba')
+    };
+    return styleMap[style] || style;
+  };
+
+  // ✅ Fonction pour traduire les niveaux
+  const translateLevel = (level: string) => {
+    const levelMap: Record<string, string> = {
+      'beginner': translate('beginner'),
+      'intermediate': translate('intermediate'),
+      'advanced': translate('advanced'),
+      'professional': translate('professional'),
+      'pro': translate('professional')
+    };
+    return levelMap[level] || level;
+  };
+
+  // ✅ Fonction pour traduire les statuts
+  const translateStatus = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'draft': translate('draft'),
+      'submitted': translate('submitted'),
+      'approved': translate('approved'),
+      'rejected': translate('rejected')
+    };
+    return statusMap[status] || status;
+  };
+
   // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto mb-4"></div>
-          <p className="text-xl text-purple-100">Chargement des équipes...</p>
+          <p className="text-xl text-purple-100">{translate('loadingData')}</p>
         </div>
       </div>
     );
@@ -576,10 +577,10 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-5xl md:text-6xl font-black text-white mb-4 tracking-tight">
-                {t.performanceTeams || 'Équipes de Performance'}
+                {translate('performanceTeams')}
               </h1>
               <p className="text-xl text-purple-100 max-w-2xl">
-                Gérez les équipes de performance pour votre congrès de danse
+                {translate('teamDesc')}
               </p>
             </div>
             
@@ -591,7 +592,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                   className="group bg-gradient-to-r from-violet-500 to-purple-600 text-white px-8 py-4 rounded-xl font-bold hover:from-violet-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus size={20} />
-                  {isCreating ? 'Création...' : (t.createTeam || 'Créer une équipe')}
+                  {isCreating ? translate('creating') + '...' : translate('createTeam')}
                 </button>
                 {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
                   <div className="flex gap-2">
@@ -632,28 +633,28 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
               <Users className="w-8 h-8 text-blue-400" />
               <div className="text-3xl font-black text-blue-400">{performanceTeams.length}</div>
             </div>
-            <p className="text-gray-300 font-medium">Total équipes</p>
+            <p className="text-gray-300 font-medium">{translate('total')} {translate('teams')}</p>
           </div>
           <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-md border border-green-500/20 rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-3">
               <CheckCircle className="w-8 h-8 text-green-400" />
               <div className="text-3xl font-black text-green-400">{performanceTeams.filter(t => t.status === 'approved').length}</div>
             </div>
-            <p className="text-gray-300 font-medium">Approuvées</p>
+            <p className="text-gray-300 font-medium">{translate('approved')}</p>
           </div>
           <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 backdrop-blur-md border border-yellow-500/20 rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-3">
               <Target className="w-8 h-8 text-yellow-400" />
               <div className="text-3xl font-black text-yellow-400">{performanceTeams.filter(t => t.status === 'submitted').length}</div>
             </div>
-            <p className="text-gray-300 font-medium">En attente</p>
+            <p className="text-gray-300 font-medium">{translate('pending')}</p>
           </div>
           <div className="bg-gradient-to-br from-gray-500/10 to-slate-500/10 backdrop-blur-md border border-gray-500/20 rounded-3xl p-6">
             <div className="flex items-center gap-3 mb-3">
               <BarChart3 className="w-8 h-8 text-gray-400" />
               <div className="text-3xl font-black text-gray-400">{performanceTeams.filter(t => t.status === 'draft').length}</div>
             </div>
-            <p className="text-gray-300 font-medium">Brouillons</p>
+            <p className="text-gray-300 font-medium">{translate('draft')}</p>
           </div>
         </div>
 
@@ -677,30 +678,29 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       team.status === 'approved' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
                       'bg-red-500/20 text-red-300 border border-red-500/30'
                     }`}>
-                      {team.status === 'draft' ? (t.draft || 'Brouillon') :
-                       team.status === 'submitted' ? (t.submitted || '🚨 SOUMISE - ACTION REQUISE') :
-                       team.status === 'approved' ? (t.approved || 'Approuvée') :
-                       (t.rejected || 'Refusée')}
+                      {team.status === 'submitted' && '🚨 '}
+                      {translateStatus(team.status)}
+                      {team.status === 'submitted' && ` - ${translate('actionRequired')}`}
                     </span>
                     {team.status === 'submitted' && (
                       <span className="px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-300 border border-red-500/30 animate-pulse">
-                        URGENT
+                        {translate('urgent')}
                       </span>
                     )}
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-gray-300 mb-4">
                     <div>
-                      <span className="text-purple-400 font-semibold">{t.director || 'Directeur'}:</span>
+                      <span className="text-purple-400 font-semibold">{translate('directorName')}:</span>
                       <p className="font-medium">{team.director_name}</p>
                       <p className="text-sm text-gray-400">{team.director_email}</p>
                     </div>
                     <div>
-                      <span className="text-purple-400 font-semibold">{t.studio || 'Studio'}:</span>
-                      <p className="font-medium">{team.studio_name || 'Non spécifié'}</p>
+                      <span className="text-purple-400 font-semibold">{translate('studioName')}:</span>
+                      <p className="font-medium">{team.studio_name || translate('none')}</p>
                     </div>
                     <div>
-                      <span className="text-purple-400 font-semibold">{t.location || 'Localisation'}:</span>
+                      <span className="text-purple-400 font-semibold">{translate('location')}:</span>
                       <p className="font-medium">
                         {team.city}
                         {team.state && `, ${team.state}`}
@@ -708,8 +708,8 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       </p>
                     </div>
                     <div>
-                      <span className="text-purple-400 font-semibold">{t.groupSize || 'Taille'}:</span>
-                      <p className="font-medium">{team.group_size} {t.members || 'membres'}</p>
+                      <span className="text-purple-400 font-semibold">{translate('groupSize')}:</span>
+                      <p className="font-medium">{team.group_size} {translate('members')}</p>
                     </div>
                   </div>
 
@@ -735,7 +735,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                           className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-2 rounded-lg hover:bg-blue-500/30 transition-colors"
                         >
                           <Globe size={16} />
-                          Site Web
+                          {translate('website')}
                         </a>
                       )}
                     </div>
@@ -744,19 +744,19 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                   <div className="flex flex-wrap gap-2 mb-4">
                     {team.dance_styles?.map(style => (
                       <span key={style} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm border border-purple-500/30 font-medium">
-                        {style}
+                        {translateDanceStyle(style)}
                       </span>
                     ))}
                     {team.performance_level && (
                       <span className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-sm border border-orange-500/30 font-medium flex items-center gap-1">
-                        ⭐ {team.performance_level}
+                        ⭐ {translateLevel(team.performance_level)}
                       </span>
                     )}
                   </div>
 
                   {team.performance_video_url && (
                     <div className="text-gray-300 mb-4">
-                      <span className="text-purple-400 font-semibold">Vidéo:</span>
+                      <span className="text-purple-400 font-semibold">{translate('performanceVideo')}:</span>
                       <a 
                         href={team.performance_video_url} 
                         target="_blank" 
@@ -764,19 +764,19 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                         className="ml-2 text-blue-400 hover:text-blue-300 underline inline-flex items-center gap-1"
                       >
                         <Play size={16} />
-                        Voir la vidéo de performance
+                        {translate('watchVideo')}
                       </a>
                     </div>
                   )}
 
                   <div className="text-gray-300 mb-4">
-                    <span className="text-purple-400 font-semibold">Musique:</span>
+                    <span className="text-purple-400 font-semibold">{translate('musicFile')}:</span>
                     <span className="ml-2">
                       {team.song_title ? (
                         <div className="flex items-center gap-3">
                           <span className="text-green-400">✅ {team.song_title}</span>
                           {uploadingMusic === team.id && (
-                            <span className="text-yellow-400 animate-pulse">📤 Upload en cours...</span>
+                            <span className="text-yellow-400 animate-pulse">📤 {translate('uploadingMusic')}...</span>
                           )}
                           {team.music_file_url && (currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
                             <a 
@@ -785,26 +785,26 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                               className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs hover:bg-blue-500/30 transition-colors flex items-center gap-1"
                             >
                               <Download size={12} />
-                              Télécharger
+                              {translate('download')}
                             </a>
                           )}
                         </div>
                       ) : (
-                        <span className="text-red-400">❌ Non fournie</span>
+                        <span className="text-red-400">❌ {translate('notProvided')}</span>
                       )}
                     </span>
                   </div>
 
                   {team.organizer_notes && (
                     <div className="text-gray-300 mb-4">
-                      <span className="text-purple-400 font-semibold">{t.organizerNotes || 'Notes'}:</span>
+                      <span className="text-purple-400 font-semibold">{translate('organizerNotes')}:</span>
                       <p className="mt-1 text-sm bg-gray-700/30 p-3 rounded-lg">{team.organizer_notes}</p>
                     </div>
                   )}
 
                   {team.rejection_reason && (
                     <div className="text-gray-300 mb-4">
-                      <span className="text-red-400 font-semibold">Raison du refus:</span>
+                      <span className="text-red-400 font-semibold">{translate('rejectionReason')}:</span>
                       <p className="mt-1 text-sm bg-red-500/10 border border-red-500/20 p-3 rounded-lg text-red-300">{team.rejection_reason}</p>
                     </div>
                   )}
@@ -820,7 +820,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                           className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 shadow-lg flex items-center gap-2"
                         >
                           <Send size={16} />
-                          Soumettre
+                          {translate('submitTeam')}
                         </button>
                       )}
                       {canEditTeam(team) && (
@@ -829,7 +829,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                           className="bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all duration-300 shadow-lg flex items-center gap-2"
                         >
                           <Edit size={16} />
-                          Modifier
+                          {translate('edit')}
                         </button>
                       )}
                     </div>
@@ -845,14 +845,14 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             className="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-all duration-300 shadow-lg hover:shadow-green-500/25 flex items-center gap-2"
                           >
                             <CheckCircle size={16} />
-                            {t.approve || 'Approuver'}
+                            {translate('approveTeam')}
                           </button>
                           <button
                             onClick={() => handleReject(team.id)}
                             className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-600 transition-all duration-300 shadow-lg hover:shadow-red-500/25 flex items-center gap-2"
                           >
                             <X size={16} />
-                            {t.reject || 'Refuser'}
+                            {translate('rejectTeam')}
                           </button>
                         </div>
                       )}
@@ -861,7 +861,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                         className="bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all duration-300 shadow-lg flex items-center gap-2"
                       >
                         <Edit size={16} />
-                        Modifier
+                        {translate('edit')}
                       </button>
                     </div>
                   )}
@@ -871,7 +871,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     className="bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2"
                   >
                     <Play size={16} />
-                    {t.viewProfile || 'Voir détails'}
+                    {translate('details')}
                   </button>
                 </div>
               </div>
@@ -880,12 +880,12 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
               {team.status === 'approved' && (
                 <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-green-300 font-semibold">✅ Équipe approuvée</span>
+                    <span className="text-green-300 font-semibold">✅ {translate('approved')}</span>
                     {team.performance_order && (
-                      <span className="text-green-300 font-bold">Ordre: #{team.performance_order}</span>
+                      <span className="text-green-300 font-bold">{translate('performanceOrder')}: #{team.performance_order}</span>
                     )}
                   </div>
-                  <p className="text-gray-400 text-sm">Prête pour le spectacle</p>
+                  <p className="text-gray-400 text-sm">{translate('readyForShow')}</p>
                 </div>
               )}
 
@@ -893,11 +893,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 <div className="mt-6 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
                   <h4 className="text-purple-300 font-semibold mb-2 flex items-center gap-2">
                     <Star size={16} />
-                    Notation
+                    {translate('scoring')}
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-400">Taille:</span>
+                      <span className="text-gray-400">{translate('groupSize')}:</span>
                       <span className="text-white font-bold ml-2">{team.scoring.group_size_score}/10</span>
                     </div>
                     <div>
@@ -905,11 +905,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       <span className="text-white font-bold ml-2">{team.scoring.wow_factor_score}/10</span>
                     </div>
                     <div>
-                      <span className="text-gray-400">Technique:</span>
+                      <span className="text-gray-400">{translate('technical')}:</span>
                       <span className="text-white font-bold ml-2">{team.scoring.technical_score}/10</span>
                     </div>
                     <div>
-                      <span className="text-gray-400">Total:</span>
+                      <span className="text-gray-400">{translate('total')}:</span>
                       <span className="text-purple-300 font-bold ml-2">{team.scoring.total_score}/30</span>
                     </div>
                   </div>
@@ -923,13 +923,13 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
         {performanceTeams.length === 0 && !isLoading && (
           <div className="text-center py-12">
             <Music className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-gray-400 mb-2">Aucune équipe pour le moment</h3>
-            <p className="text-gray-500">Les équipes apparaîtront ici une fois créées</p>
+            <h3 className="text-xl font-bold text-gray-400 mb-2">{translate('noTeams')}</h3>
+            <p className="text-gray-500">{translate('teamsWillAppear')}</p>
             <button
               onClick={loadTeams}
               className="mt-4 bg-purple-500/20 text-purple-300 px-4 py-2 rounded-lg hover:bg-purple-500/30 transition-colors"
             >
-              Actualiser
+              {translate('refresh')}
             </button>
           </div>
         )}
@@ -939,7 +939,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold text-white">{t.createTeam || 'Créer une équipe'}</h2>
+                <h2 className="text-3xl font-bold text-white">{translate('createTeam')}</h2>
                 <button 
                   onClick={() => setShowCreateTeam(false)} 
                   disabled={isCreating}
@@ -952,7 +952,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">{t.teamName || 'Nom de l\'équipe'} *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('teamName')} *</label>
                     <input
                       type="text"
                       value={newTeam.team_name}
@@ -963,13 +963,13 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">{t.director || 'Directeur'} *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('directorName')} *</label>
                     <input
                       type="text"
                       value={newTeam.director_name}
                       onChange={(e) => setNewTeam({...newTeam, director_name: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                      placeholder="Nom du directeur"
+                      placeholder={translate('directorName')}
                       required
                     />
                   </div>
@@ -977,7 +977,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Email du directeur *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('directorEmail')} *</label>
                     <input
                       type="email"
                       value={newTeam.director_email}
@@ -988,7 +988,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Téléphone</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('phone')}</label>
                     <input
                       type="tel"
                       value={newTeam.director_phone}
@@ -1001,17 +1001,17 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">{t.studio || 'Studio'}</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('studioName')}</label>
                     <input
                       type="text"
                       value={newTeam.studio_name}
                       onChange={(e) => setNewTeam({...newTeam, studio_name: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                      placeholder="Nom du studio"
+                      placeholder={translate('studioName')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">{t.groupSize || 'Taille du groupe'} *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('groupSize')} *</label>
                     <input
                       type="number"
                       min="2"
@@ -1025,7 +1025,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">{t.city || 'Ville'} *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('city')} *</label>
                     <input
                       type="text"
                       value={newTeam.city}
@@ -1036,7 +1036,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">État/Province</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('state')}</label>
                     <input
                       type="text"
                       value={newTeam.state}
@@ -1046,7 +1046,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">{t.country || 'Pays'} *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('country')} *</label>
                     <input
                       type="text"
                       value={newTeam.country}
@@ -1060,7 +1060,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">📸 Instagram</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">📸 {translate('instagram')}</label>
                     <input
                       type="text"
                       value={newTeam.instagram}
@@ -1070,7 +1070,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">🌐 Site Internet</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">🌐 {translate('website')}</label>
                     <input
                       type="url"
                       value={newTeam.website_url}
@@ -1083,23 +1083,23 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Titre de la chanson</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('songTitle')}</label>
                     <input
                       type="text"
                       value={newTeam.song_title}
                       onChange={(e) => setNewTeam({...newTeam, song_title: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                      placeholder="Titre de la chanson"
+                      placeholder={translate('songTitle')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Artiste</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('songArtist')}</label>
                     <input
                       type="text"
                       value={newTeam.song_artist}
                       onChange={(e) => setNewTeam({...newTeam, song_artist: e.target.value})}
                       className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                      placeholder="Nom de l'artiste"
+                      placeholder={translate('songArtist')}
                     />
                   </div>
                 </div>
@@ -1107,7 +1107,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 {/* Upload MP3 */}
                 <div>
                   <label className="block text-sm font-bold text-gray-300 mb-2">
-                    🎵 Fichier Musical (MP3)
+                    🎵 {translate('musicFile')} (MP3)
                   </label>
                   <div className="border-2 border-dashed border-purple-500/30 rounded-xl p-6 text-center hover:border-purple-500/50 transition-colors">
                     <input
@@ -1137,13 +1137,13 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                         {newTeam.music_file ? (
                           <div>
                             <p className="text-green-400 font-semibold">✅ {newTeam.music_file.name}</p>
-                            <p className="text-green-300 text-sm">Fichier prêt à être uploadé</p>
-                            <p className="text-gray-400 text-xs mt-1">Cliquez pour changer</p>
+                            <p className="text-green-300 text-sm">{translate('fileReadyToUpload')}</p>
+                            <p className="text-gray-400 text-xs mt-1">{translate('clickToChange')}</p>
                           </div>
                         ) : (
                           <div>
-                            <p className="text-purple-300 font-semibold">Cliquez pour sélectionner</p>
-                            <p className="text-gray-400 text-sm">MP3, WAV, M4A acceptés</p>
+                            <p className="text-purple-300 font-semibold">{translate('clickToSelect')}</p>
+                            <p className="text-gray-400 text-sm">MP3, WAV, M4A {translate('accepted')}</p>
                           </div>
                         )}
                       </div>
@@ -1153,7 +1153,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                   {newTeam.music_file && (
                     <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg text-xs">
                       <p className="text-green-300">
-                        <strong>Fichier détecté:</strong> {newTeam.music_file.name} 
+                        <strong>{translate('fileDetected')}:</strong> {newTeam.music_file.name} 
                         ({(newTeam.music_file.size / 1024 / 1024).toFixed(1)} MB)
                       </p>
                     </div>
@@ -1163,7 +1163,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 {/* Lien vidéo */}
                 <div>
                   <label className="block text-sm font-bold text-gray-300 mb-2">
-                    🎬 Vidéo de Performance
+                    🎬 {translate('performanceVideo')}
                   </label>
                   <input
                     type="url"
@@ -1173,16 +1173,16 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     placeholder="https://youtube.com/watch?v=... ou Google Drive, Vimeo..."
                   />
                   <p className="text-gray-400 text-xs mt-2">
-                    💡 Liens acceptés: YouTube, Vimeo, Google Drive, Dropbox, etc.
+                    💡 {translate('acceptedLinks')}: YouTube, Vimeo, Google Drive, Dropbox, etc.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">{t.danceStyles || 'Styles de danse'}</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{translate('danceStyles')}</label>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {newTeam.dance_styles.map(style => (
                       <span key={style} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm border border-purple-500/30 flex items-center gap-2">
-                        {style}
+                        {translateDanceStyle(style)}
                         <button
                           onClick={() => removeDanceStyle(style)}
                           className="text-red-400 hover:text-red-300"
@@ -1204,7 +1204,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             : 'bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30'
                         }`}
                       >
-                        {style}
+                        {translateDanceStyle(style)}
                       </button>
                     ))}
                   </div>
@@ -1213,7 +1213,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 {/* Niveau de performance */}
                 <div>
                   <label className="block text-sm font-bold text-gray-300 mb-2">
-                    ⭐ Niveau de l'équipe
+                    ⭐ {translate('performanceLevel')}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {(['beginner', 'intermediate', 'advanced', 'pro'] as const).map(level => (
@@ -1226,12 +1226,12 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             : 'bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30'
                         }`}
                       >
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                        {translateLevel(level)}
                       </button>
                     ))}
                   </div>
                   <p className="text-gray-400 text-xs mt-2">
-                    💡 Sélectionnez le niveau qui correspond le mieux à votre équipe
+                    💡 {translate('selectLevelThatFits')}
                   </p>
                 </div>
 
@@ -1243,10 +1243,10 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                   {isCreating ? (
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Création en cours...
+                      {translate('creating')}...
                     </div>
                   ) : (
-                    t.createTeam || 'Créer l\'équipe'
+                    translate('createTeam')
                   )}
                 </button>
               </div>
@@ -1259,7 +1259,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold text-white">Modifier l'équipe</h2>
+                <h2 className="text-3xl font-bold text-white">{translate('editTeam')}</h2>
                 <button 
                   onClick={() => setShowEditTeam(null)} 
                   disabled={isUpdating}
@@ -1272,7 +1272,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Nom de l'équipe *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('teamName')} *</label>
                     <input
                       type="text"
                       value={editTeamData.team_name}
@@ -1282,7 +1282,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Directeur *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('directorName')} *</label>
                     <input
                       type="text"
                       value={editTeamData.director_name}
@@ -1295,7 +1295,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Email *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('directorEmail')} *</label>
                     <input
                       type="email"
                       value={editTeamData.director_email}
@@ -1305,7 +1305,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Téléphone</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('phone')}</label>
                     <input
                       type="tel"
                       value={editTeamData.director_phone}
@@ -1317,7 +1317,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Ville *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('city')} *</label>
                     <input
                       type="text"
                       value={editTeamData.city}
@@ -1327,7 +1327,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">État/Province</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('state')}</label>
                     <input
                       type="text"
                       value={editTeamData.state}
@@ -1336,7 +1336,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Pays *</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{translate('country')} *</label>
                     <input
                       type="text"
                       value={editTeamData.country}
@@ -1349,7 +1349,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">📸 Instagram</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">📸 {translate('instagram')}</label>
                     <input
                       type="text"
                       value={editTeamData.instagram}
@@ -1359,7 +1359,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">🌐 Site Web</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">🌐 {translate('website')}</label>
                     <input
                       type="url"
                       value={editTeamData.website_url}
@@ -1371,11 +1371,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Styles de danse</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{translate('danceStyles')}</label>
                   <div className="flex flex-wrap gap-2 mb-3">
                     {editTeamData.dance_styles.map(style => (
                       <span key={style} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm border border-blue-500/30 flex items-center gap-2">
-                        {style}
+                        {translateDanceStyle(style)}
                         <button
                           onClick={() => removeEditDanceStyle(style)}
                           className="text-red-400 hover:text-red-300"
@@ -1397,7 +1397,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             : 'bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30'
                         }`}
                       >
-                        {style}
+                        {translateDanceStyle(style)}
                       </button>
                     ))}
                   </div>
@@ -1406,7 +1406,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 {/* Niveau de performance en édition */}
                 <div>
                   <label className="block text-sm font-bold text-gray-300 mb-2">
-                    ⭐ Niveau de l'équipe
+                    ⭐ {translate('performanceLevel')}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {(['beginner', 'intermediate', 'advanced', 'pro'] as const).map(level => (
@@ -1419,7 +1419,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             : 'bg-orange-500/20 text-orange-300 border border-orange-500/30 hover:bg-orange-500/30'
                         }`}
                       >
-                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                        {translateLevel(level)}
                       </button>
                     ))}
                   </div>
@@ -1431,7 +1431,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     disabled={isUpdating}
                     className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50"
                   >
-                    Annuler
+                    {translate('cancel')}
                   </button>
                   <button
                     onClick={saveEditTeam}
@@ -1441,10 +1441,10 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     {isUpdating ? (
                       <div className="flex items-center justify-center gap-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Sauvegarde...
+                        {translate('saving')}...
                       </div>
                     ) : (
-                      'Sauvegarder'
+                      translate('saveChanges')
                     )}
                   </button>
                 </div>
@@ -1469,25 +1469,25 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-purple-400 font-semibold mb-2">Informations générales</h4>
+                      <h4 className="text-purple-400 font-semibold mb-2">{translate('generalInfo')}</h4>
                       <div className="space-y-2 text-gray-300">
-                        <p><strong>Directeur:</strong> {selectedTeam.director_name}</p>
-                        <p><strong>Email:</strong> {selectedTeam.director_email}</p>
-                        {selectedTeam.director_phone && <p><strong>Téléphone:</strong> {selectedTeam.director_phone}</p>}
-                        {selectedTeam.studio_name && <p><strong>Studio:</strong> {selectedTeam.studio_name}</p>}
-                        <p><strong>Localisation:</strong> 
+                        <p><strong>{translate('directorName')}:</strong> {selectedTeam.director_name}</p>
+                        <p><strong>{translate('email')}:</strong> {selectedTeam.director_email}</p>
+                        {selectedTeam.director_phone && <p><strong>{translate('phone')}:</strong> {selectedTeam.director_phone}</p>}
+                        {selectedTeam.studio_name && <p><strong>{translate('studioName')}:</strong> {selectedTeam.studio_name}</p>}
+                        <p><strong>{translate('location')}:</strong> 
                           {selectedTeam.city}
                           {selectedTeam.state && `, ${selectedTeam.state}`}
                           {selectedTeam.country && `, ${selectedTeam.country}`}
                         </p>
-                        <p><strong>Taille:</strong> {selectedTeam.group_size} membres</p>
+                        <p><strong>{translate('groupSize')}:</strong> {selectedTeam.group_size} {translate('members')}</p>
                       </div>
                     </div>
 
                     {/* Réseaux sociaux */}
                     {(selectedTeam.instagram || selectedTeam.website_url) && (
                       <div>
-                        <h4 className="text-purple-400 font-semibold mb-2">Réseaux sociaux</h4>
+                        <h4 className="text-purple-400 font-semibold mb-2">{translate('socialMedia')}</h4>
                         <div className="space-y-2">
                           {selectedTeam.instagram && (
                             <div className="flex items-center gap-2">
@@ -1512,7 +1512,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                                 rel="noopener noreferrer"
                                 className="text-blue-400 hover:text-blue-300 underline"
                               >
-                                Site web
+                                {translate('website')}
                               </a>
                               <ExternalLink size={14} className="text-gray-400" />
                             </div>
@@ -1523,16 +1523,16 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                     
                     <div className="space-y-4">
                       <div>
-                        <h4 className="text-purple-400 font-semibold mb-2">Performance</h4>
+                        <h4 className="text-purple-400 font-semibold mb-2">{translate('performance')}</h4>
                         <div className="space-y-2 text-gray-300">
-                          {selectedTeam.song_title && <p><strong>Chanson:</strong> {selectedTeam.song_title}</p>}
-                          {selectedTeam.song_artist && <p><strong>Artiste:</strong> {selectedTeam.song_artist}</p>}
+                          {selectedTeam.song_title && <p><strong>{translate('songTitle')}:</strong> {selectedTeam.song_title}</p>}
+                          {selectedTeam.song_artist && <p><strong>{translate('songArtist')}:</strong> {selectedTeam.song_artist}</p>}
                           <div>
-                            <strong>Styles:</strong>
+                            <strong>{translate('danceStyles')}:</strong>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {selectedTeam.dance_styles?.map(style => (
                                 <span key={style} className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-sm">
-                                  {style}
+                                  {translateDanceStyle(style)}
                                 </span>
                               ))}
                             </div>
@@ -1540,9 +1540,9 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                           
                           {selectedTeam.performance_level && (
                             <div>
-                              <strong>Niveau:</strong>
+                              <strong>{translate('performanceLevel')}:</strong>
                               <span className="ml-2 px-3 py-1 bg-orange-500/20 text-orange-300 rounded-lg text-sm font-medium">
-                                ⭐ {selectedTeam.performance_level.charAt(0).toUpperCase() + selectedTeam.performance_level.slice(1)}
+                                ⭐ {translateLevel(selectedTeam.performance_level)}
                               </span>
                             </div>
                           )}
@@ -1550,7 +1550,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                           {/* Vidéo de performance */}
                           {selectedTeam.performance_video_url && (
                             <div>
-                              <strong>Vidéo de performance:</strong>
+                              <strong>{translate('performanceVideo')}:</strong>
                               <div className="mt-2">
                                 <a 
                                   href={selectedTeam.performance_video_url} 
@@ -1559,7 +1559,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                                   className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-300 px-4 py-2 rounded-lg hover:bg-blue-500/30 transition-colors"
                                 >
                                   <Play size={16} />
-                                  Voir la vidéo
+                                  {translate('watchVideo')}
                                 </a>
                               </div>
                             </div>
@@ -1567,7 +1567,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                           
                           {/* Fichier musical */}
                           <div>
-                            <strong>Fichier musical:</strong>
+                            <strong>{translate('musicFile')}:</strong>
                             <div className="mt-2 space-y-2">
                               {selectedTeam.song_title ? (
                                 <div>
@@ -1586,7 +1586,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                                         className="bg-green-500/20 text-green-300 px-4 py-2 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-2"
                                       >
                                         <Play size={16} />
-                                        Écouter
+                                        {translate('listen')}
                                       </a>
                                       <a
                                         href={selectedTeam.music_file_url}
@@ -1594,7 +1594,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                                         className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-lg hover:bg-blue-500/30 transition-colors flex items-center gap-2"
                                       >
                                         <Download size={16} />
-                                        Télécharger
+                                        {translate('download')}
                                       </a>
                                     </div>
                                   )}
@@ -1602,7 +1602,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                               ) : (
                                 <div className="inline-flex items-center gap-2 bg-red-500/20 text-red-300 px-4 py-2 rounded-lg">
                                   <AlertTriangle size={16} />
-                                  <span>❌ Fichier musical manquant</span>
+                                  <span>❌ {translate('musicFileMissing')}</span>
                                 </div>
                               )}
                             </div>
@@ -1614,26 +1614,23 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                   
                   <div className="space-y-4">
                     <div>
-                      <h4 className="text-purple-400 font-semibold mb-2">Statut</h4>
+                      <h4 className="text-purple-400 font-semibold mb-2">{translate('status')}</h4>
                       <span className={`px-4 py-2 rounded-full text-sm font-bold ${
                         selectedTeam.status === 'draft' ? 'bg-gray-500/20 text-gray-300' :
                         selectedTeam.status === 'submitted' ? 'bg-yellow-500/20 text-yellow-300' :
                         selectedTeam.status === 'approved' ? 'bg-green-500/20 text-green-300' :
                         'bg-red-500/20 text-red-300'
                       }`}>
-                        {selectedTeam.status === 'draft' ? 'Brouillon' :
-                         selectedTeam.status === 'submitted' ? 'Soumise' :
-                         selectedTeam.status === 'approved' ? 'Approuvée' :
-                         'Refusée'}
+                        {translateStatus(selectedTeam.status)}
                       </span>
                     </div>
                     
                     {selectedTeam.scoring && (
                       <div>
-                        <h4 className="text-purple-400 font-semibold mb-2">Notation</h4>
+                        <h4 className="text-purple-400 font-semibold mb-2">{translate('scoring')}</h4>
                         <div className="space-y-2">
                           <div className="flex justify-between">
-                            <span>Taille du groupe:</span>
+                            <span>{translate('groupSize')}:</span>
                             <span className="font-bold">{selectedTeam.scoring.group_size_score}/10</span>
                           </div>
                           <div className="flex justify-between">
@@ -1641,11 +1638,11 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                             <span className="font-bold">{selectedTeam.scoring.wow_factor_score}/10</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Technique:</span>
+                            <span>{translate('technical')}:</span>
                             <span className="font-bold">{selectedTeam.scoring.technical_score}/10</span>
                           </div>
                           <div className="flex justify-between border-t border-gray-600 pt-2">
-                            <span className="font-bold">Total:</span>
+                            <span className="font-bold">{translate('total')}:</span>
                             <span className="font-bold text-purple-300">{selectedTeam.scoring.total_score}/30</span>
                           </div>
                         </div>
@@ -1654,19 +1651,19 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
                     {selectedTeam.performance_order && (
                       <div>
-                        <h4 className="text-purple-400 font-semibold mb-2">Ordre de passage</h4>
+                        <h4 className="text-purple-400 font-semibold mb-2">{translate('performanceOrder')}</h4>
                         <div className="text-2xl font-bold text-green-400">#{selectedTeam.performance_order}</div>
                       </div>
                     )}
 
                     {/* Timestamps */}
                     <div>
-                      <h4 className="text-purple-400 font-semibold mb-2">Historique</h4>
+                      <h4 className="text-purple-400 font-semibold mb-2">{translate('history')}</h4>
                       <div className="space-y-1 text-sm text-gray-400">
-                        {selectedTeam.created_at && <p><strong>Créée:</strong> {new Date(selectedTeam.created_at).toLocaleString()}</p>}
-                        {selectedTeam.submitted_at && <p><strong>Soumise:</strong> {new Date(selectedTeam.submitted_at).toLocaleString()}</p>}
-                        {selectedTeam.approved_at && <p><strong>Approuvée:</strong> {new Date(selectedTeam.approved_at).toLocaleString()}</p>}
-                        {selectedTeam.rejected_at && <p><strong>Refusée:</strong> {new Date(selectedTeam.rejected_at).toLocaleString()}</p>}
+                        {selectedTeam.created_at && <p><strong>{translate('created')}:</strong> {new Date(selectedTeam.created_at).toLocaleString()}</p>}
+                        {selectedTeam.submitted_at && <p><strong>{translate('submitted')}:</strong> {new Date(selectedTeam.submitted_at).toLocaleString()}</p>}
+                        {selectedTeam.approved_at && <p><strong>{translate('approved')}:</strong> {new Date(selectedTeam.approved_at).toLocaleString()}</p>}
+                        {selectedTeam.rejected_at && <p><strong>{translate('rejected')}:</strong> {new Date(selectedTeam.rejected_at).toLocaleString()}</p>}
                       </div>
                     </div>
                   </div>
@@ -1674,14 +1671,14 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                 
                 {selectedTeam.organizer_notes && (
                   <div className="mb-8">
-                    <h4 className="text-purple-400 font-semibold mb-2">Notes de l'organisateur</h4>
+                    <h4 className="text-purple-400 font-semibold mb-2">{translate('organizerNotes')}</h4>
                     <p className="text-gray-300 bg-gray-700/30 p-4 rounded-xl">{selectedTeam.organizer_notes}</p>
                   </div>
                 )}
 
                 {selectedTeam.rejection_reason && (
                   <div className="mb-8">
-                    <h4 className="text-red-400 font-semibold mb-2">Raison du refus</h4>
+                    <h4 className="text-red-400 font-semibold mb-2">{translate('rejectionReason')}</h4>
                     <p className="text-red-300 bg-red-500/10 border border-red-500/20 p-4 rounded-xl">{selectedTeam.rejection_reason}</p>
                   </div>
                 )}
@@ -1697,7 +1694,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       className="flex-1 bg-green-500 text-white py-3 rounded-xl font-bold hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
                     >
                       <CheckCircle size={20} />
-                      Approuver cette équipe
+                      {translate('approveTeam')}
                     </button>
                     <button
                       onClick={() => {
@@ -1707,7 +1704,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
                       className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                     >
                       <X size={20} />
-                      Refuser cette équipe
+                      {translate('rejectTeam')}
                     </button>
                   </div>
                 )}
