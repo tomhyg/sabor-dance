@@ -11,7 +11,7 @@ interface VolunteerShift {
   max_volunteers: number;
   current_volunteers: number;
   role_type: string;
-  status: 'unpublished' | 'live' | 'full' | 'cancelled';
+  status: 'draft' | 'live' | 'full' | 'cancelled' | 'unpublished'; // 
   check_in_required: boolean;
   organizer_in_charge?: string;
 }
