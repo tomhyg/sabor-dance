@@ -230,7 +230,6 @@ export const translations = {
     
     // Informations équipe
     teamName: 'Nom de l\'équipe',
-    teamDirector: 'Directeur de l\'équipe',
     directorName: 'Nom du directeur',
     directorEmail: 'Email du directeur',
     directorPhone: 'Téléphone du directeur',
