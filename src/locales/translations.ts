@@ -171,10 +171,10 @@ export const translations = {
     live: 'Actif',
     full: 'Complet',
     cancelled: 'Annulé',
-
+    completed: 'Terminé',
     
     // Actions bénévoles
-
+    signUp: 'S\'inscrire',
     signedUp: 'Inscrit',
     checkIn: 'Pointer',
     checkedIn: 'Présent',
@@ -230,6 +230,7 @@ export const translations = {
     
     // Informations équipe
     teamName: 'Nom de l\'équipe',
+    teamDirector: 'Directeur de l\'équipe',
     directorName: 'Nom du directeur',
     directorEmail: 'Email du directeur',
     directorPhone: 'Téléphone du directeur',
@@ -392,7 +393,7 @@ export const translations = {
     // En-têtes exports
     id: 'ID',
     name: 'Nom',
-
+    title: 'Titre',
     description: 'Description',
     date: 'Date',
     time: 'Heure',
@@ -698,10 +699,10 @@ export const translations = {
     live: 'Live',
     full: 'Full',
     cancelled: 'Cancelled',
-
+    completed: 'Completed',
     
     // Volunteer actions
-
+    signUp: 'Sign Up',
     signedUp: 'Signed Up',
     checkIn: 'Check In',
     checkedIn: 'Checked In',
@@ -757,6 +758,7 @@ export const translations = {
     
     // Team information
     teamName: 'Team Name',
+    teamDirector: 'Team Director',
     directorName: 'Director Name',
     directorEmail: 'Director Email',
     directorPhone: 'Director Phone',
@@ -919,6 +921,7 @@ export const translations = {
     // Export headers
     id: 'ID',
     name: 'Name',
+    title: 'Title',
     description: 'Description',
     date: 'Date',
     time: 'Time',
@@ -1224,10 +1227,10 @@ export const translations = {
     live: 'Activo',
     full: 'Completo',
     cancelled: 'Cancelado',
-
+    completed: 'Completado',
     
     // Acciones de voluntarios
-
+    signUp: 'Inscribirse',
     signedUp: 'Inscrito',
     checkIn: 'Registrar entrada',
     checkedIn: 'Presente',
@@ -1283,6 +1286,7 @@ export const translations = {
     
     // Información del equipo
     teamName: 'Nombre del equipo',
+    teamDirector: 'Director del equipo',
     directorName: 'Nombre del director',
     directorEmail: 'Email del director',
     directorPhone: 'Teléfono del director',
@@ -1445,6 +1449,7 @@ export const translations = {
     // Encabezados de exportación
     id: 'ID',
     name: 'Nombre',
+    title: 'Título',
     description: 'Descripción',
     date: 'Fecha',
     time: 'Hora',
