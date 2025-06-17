@@ -173,6 +173,7 @@ export const translations = {
     completed: 'Terminé',
     
     // Actions bénévoles
+    signUpForShift: 'S\'inscrire',
     signedUp: 'Inscrit',
     checkIn: 'Pointer',
     checkedIn: 'Présent',
@@ -390,6 +391,7 @@ export const translations = {
     // En-têtes exports
     id: 'ID',
     name: 'Nom',
+    columnTitle: 'Titre',
     description: 'Description',
     date: 'Date',
     time: 'Heure',
@@ -697,6 +699,7 @@ export const translations = {
     cancelled: 'Cancelled',
     
     // Volunteer actions
+    signUpForShift: 'Sign Up',
     signedUp: 'Signed Up',
     checkIn: 'Check In',
     checkedIn: 'Checked In',
@@ -914,6 +917,7 @@ export const translations = {
     // Export headers
     id: 'ID',
     name: 'Name',
+    columnTitle: 'Title',
     description: 'Description',
     date: 'Date',
     time: 'Time',
@@ -1221,6 +1225,7 @@ export const translations = {
     cancelled: 'Cancelado',
     
     // Acciones de voluntarios
+    signUpForShift: 'Inscribirse',
     signedUp: 'Inscrito',
     checkIn: 'Registrar entrada',
     checkedIn: 'Presente',
@@ -1438,6 +1443,7 @@ export const translations = {
     // Encabezados de exportación
     id: 'ID',
     name: 'Nombre',
+    columnTitle: 'Título',
     description: 'Descripción',
     date: 'Fecha',
     time: 'Hora',
