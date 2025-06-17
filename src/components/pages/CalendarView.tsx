@@ -2,6 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Clock, Users, Plus, Edit, ChevronLeft, ChevronRight, UserPlus, X, Check, AlertCircle } from 'lucide-react';
 import { volunteerService } from '../../services/volunteerService';
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+};
+
 interface VolunteerShift {
   id: string;
   title: string;
@@ -316,7 +322,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch déplacement:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
 
     setDraggedShift(null);
@@ -434,7 +440,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     } finally {
       setIsCreating(false);
     }
@@ -497,7 +503,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdating(false);
     }
@@ -525,7 +531,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       );
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 

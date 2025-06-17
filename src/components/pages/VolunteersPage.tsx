@@ -6,6 +6,12 @@ import VolunteerDashboard from './VolunteerDashboard';
 import { exportVolunteerShifts, exportVolunteerSignups, quickExport, ExportFormat } from '../../utils/exportUtils';
 import { volunteerService } from '../../services/volunteerService';
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+};
+
 // Types
 interface VolunteerShift {
   id: string;
@@ -709,7 +715,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   
     } catch (error) {
       console.error('❌ Error catch:', error);
-      alert(`Error: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 
@@ -784,7 +790,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   
     } catch (error) {
       console.error('❌ Error catch:', error);
-      alert(`Error: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 
@@ -822,7 +828,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   
     } catch (error) {
       console.error('❌ Error catch:', error);
-      alert(`Error: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 

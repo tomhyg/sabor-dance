@@ -4,6 +4,12 @@ import { exportPerformanceTeams, quickExport } from '../../utils/exportUtils';
 import { teamService } from '../../services/teamService';
 import { PerformanceTeam } from '../../types/PerformanceTeam';
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+};
+
 /*
 interface PerformanceTeam {
   id: string;
@@ -168,7 +174,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     } finally {
       setIsLoading(false);
     }
@@ -275,7 +281,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     } finally {
       setIsCreating(false);
     }
@@ -292,7 +298,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
       if (error) {
         console.error('❌ Erreur upload musical:', error);
-        alert(`Erreur upload: ${error.message}`);
+        alert(`Erreur: ${getErrorMessage(error)}`);
         return;
      }
 
@@ -319,7 +325,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
    } catch (error) {
       console.error('❌ Erreur catch upload:', error);
-     alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     } finally {
      setUploadingMusic(null);
     }
@@ -352,7 +358,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 
@@ -409,7 +415,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdating(false);
     }
@@ -449,7 +455,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 
@@ -487,7 +493,7 @@ const TeamsPage: React.FC<TeamsPageProps> = ({
 
     } catch (error) {
       console.error('❌ Erreur catch:', error);
-      alert(`Erreur: ${error.message}`);
+      alert(`Erreur: ${getErrorMessage(error)}`);
     }
   };
 
