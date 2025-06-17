@@ -1,5 +1,5 @@
 // exportUtils.ts - Multi-format export utilities (CSV, PDF, XLSX)
-
+import { PerformanceTeam } from '../types/PerformanceTeam';
 // Types
 interface VolunteerShift {
   id: string;
@@ -27,35 +27,49 @@ interface VolunteerSignup {
   qr_code?: string;
 }
 
+// Dans exportUtils.ts, remplacez l'interface PerformanceTeam par celle-ci :
+/*
 interface PerformanceTeam {
   id: string;
+  event_id?: string;  // Ajouté
   team_name: string;
   director_name: string;
   director_email: string;
-  studio_name: string;
+  director_phone?: string | null;  // Modifié
+  studio_name?: string | null;  // Modifié de string vers string | null
   city: string;
-  state?: string;
+  state?: string | null;  // Modifié
   country: string;
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
-  performance_video_url?: string;
-  song_title?: string;
+  performance_video_url?: string | null;  // Modifié
+  music_file_url?: string | null;  // Ajouté
+  song_title?: string | null;  // Modifié
+  song_artist?: string | null;  // Ajouté
   group_size: number;
   dance_styles: string[];
-  level?: string;
-  performance_order?: number;
+  performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null | undefined;
+  performance_order?: number | null;  // Modifié
   scoring?: {
     group_size_score: number;
     wow_factor_score: number;
     technical_score: number;
     style_variety_bonus: number;
     total_score: number;
-  };
-  organizer_notes?: string;
-  can_edit_until: string;
-  backup_team?: boolean;
-  created_by?: string;
+  } | null;  // Modifié
+  organizer_notes?: string | null;  // Modifié
+  rejection_reason?: string | null;  // Ajouté
+  can_edit_until?: string | null;  // Modifié
+  backup_team?: boolean | null;  // Modifié
+  instagram?: string | null;  // Ajouté
+  website_url?: string | null;  // Ajouté
+  created_by?: string | null;  // Modifié
+  created_at?: string | null;  // Ajouté
+  updated_at?: string | null;  // Ajouté
+  submitted_at?: string | null;  // Ajouté
+  approved_at?: string | null;  // Ajouté
+  rejected_at?: string | null;  // Ajouté
 }
-
+*/
 interface Volunteer {
   id: string;
   full_name: string;
@@ -365,7 +379,7 @@ export const exportPerformanceTeams = (
     'Video URL': team.performance_video_url || 'N/A',
     'Group Size': team.group_size,
     'Dance Styles': team.dance_styles.join(', '),
-    'Level': team.level || 'Not Specified',
+    'Level': team.performance_level || 'Not Specified',
     'Performance Order': team.performance_order || 'Not Set',
     'Total Score': team.scoring?.total_score || 'Not Scored',
     'Technical Score': team.scoring?.technical_score || 'N/A',
@@ -374,7 +388,7 @@ export const exportPerformanceTeams = (
     'Variety Bonus': team.scoring?.style_variety_bonus || 'N/A',
     'Organizer Notes': team.organizer_notes || 'None',
     'Backup Team': team.backup_team ? 'Yes' : 'No',
-    'Can Edit Until': new Date(team.can_edit_until).toLocaleDateString('en-US'),
+    'Can Edit Until': team.can_edit_until ? new Date(team.can_edit_until).toLocaleDateString('en-US') : 'N/A',
     'Created By': team.created_by || 'N/A'
   }));
 

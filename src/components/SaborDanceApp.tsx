@@ -15,6 +15,7 @@ import VolunteersPage from '../components/pages/VolunteersPage';
 import Dashboard from '../components/pages/Dashboard';
 import TeamsPage from '../components/pages/TeamsPage';
 import ProfilesPage from '../components/pages/ProfilesPage';
+import { PerformanceTeam } from '../types/PerformanceTeam';
 
 // Types unifiés - utilise les types locaux existants pour éviter les conflits
 interface User {
@@ -68,18 +69,18 @@ interface VolunteerSignup {
   checked_in_at?: string;
   qr_code?: string;
 }
-
+/*
 interface PerformanceTeam {
   id: string;
   team_name: string;
   director_name: string;
   director_email: string;
-  studio_name: string;
+  studio_name?: string | null;
   city: string;
   event_id: string; // ← Ajoutez cette ligne
   country: string;
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
-  performance_video_url?: string;
+  performance_video_url?: string | null;
   song_title?: string;
   group_size: number;
   dance_styles: string[];
@@ -95,6 +96,7 @@ interface PerformanceTeam {
   can_edit_until: string;
   backup_team?: boolean;
 }
+*/
 
 // Fonction utilitaire pour convertir les données Supabase vers le format local
 const convertSupabaseShiftToLocal = (supabaseShift: any): VolunteerShift => ({
@@ -553,7 +555,7 @@ const SaborDanceApp = () => {
             t={t}
             currentUser={currentUser}
             performanceTeams={performanceTeams}
-            setPerformanceTeams={setPerformanceTeams as any}
+            setPerformanceTeams={setPerformanceTeams}
           />
         );
       case 'profiles':

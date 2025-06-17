@@ -1,6 +1,7 @@
 // src/services/teamService.ts - Version complète avec upload fonctionnel
 import { supabase } from '../lib/supabase'
-import type { PerformanceTeam, User } from '../lib/supabase'
+import { PerformanceTeam } from '../types/PerformanceTeam'
+import type { User } from '../lib/supabase'
 
 export const teamService = {
   // Récupérer toutes les équipes d'un événement

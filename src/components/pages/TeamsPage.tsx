@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Music, Plus, X, Play, Star, CheckCircle, Users, Target, BarChart3, Download, AlertTriangle, Edit, Send, Instagram, Globe, ExternalLink, ChevronDown, FileSpreadsheet, FileText, Upload } from 'lucide-react';
 import { exportPerformanceTeams, quickExport } from '../../utils/exportUtils';
 import { teamService } from '../../services/teamService';
+import { PerformanceTeam } from '../../types/PerformanceTeam';
 
+/*
 interface PerformanceTeam {
   id: string;
   event_id: string;
@@ -10,7 +12,7 @@ interface PerformanceTeam {
   director_name: string;
   director_email: string;
   director_phone?: string | null;
-  studio_name?: string;
+  studio_name?: string | null;
   city: string;
   state?: string | null;
   country: string;
@@ -21,7 +23,7 @@ interface PerformanceTeam {
   song_artist?: string | null;
   group_size: number;
   dance_styles: string[];
-  performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null;
+  performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null | undefined;
   performance_order?: number | null;
   scoring?: {
     group_size_score: number;
@@ -43,6 +45,7 @@ interface PerformanceTeam {
   approved_at?: string | null;
   rejected_at?: string | null;
 }
+*/
 
 interface TeamsPageProps {
   t: any;
