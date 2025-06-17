@@ -173,7 +173,6 @@ export const translations = {
     completed: 'Terminé',
     
     // Actions bénévoles
-    signUp: 'S\'inscrire',
     signedUp: 'Inscrit',
     checkIn: 'Pointer',
     checkedIn: 'Présent',
@@ -700,7 +699,6 @@ export const translations = {
     cancelled: 'Cancelled',
     
     // Volunteer actions
-    signUp: 'Sign Up',
     signedUp: 'Signed Up',
     checkIn: 'Check In',
     checkedIn: 'Checked In',
@@ -1227,7 +1225,6 @@ export const translations = {
     cancelled: 'Cancelado',
     
     // Acciones de voluntarios
-    signUp: 'Inscribirse',
     signedUp: 'Inscrito',
     checkIn: 'Registrar entrada',
     checkedIn: 'Presente',
