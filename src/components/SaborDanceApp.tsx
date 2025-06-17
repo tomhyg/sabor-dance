@@ -138,6 +138,7 @@ const SaborDanceApp = () => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [currentLanguage, setCurrentLanguage] = useState<Language>(DEFAULT_LANGUAGE);
   const [testAuthLoading, setTestAuthLoading] = useState(false);
+  const [language, setLanguage] = useState<'fr' | 'en' | 'es'>('en');
   
   // États pour les données avec types locaux
   const [events, setEvents] = useState<Event[]>([]);
@@ -531,9 +532,10 @@ const SaborDanceApp = () => {
         );
       case 'volunteers':
         return (
-          <VolunteersPage 
+          <VolunteersPage
             t={t}
             currentUser={currentUser}
+            language={language} // ← Ajoutez cette ligne
             volunteerShifts={volunteerShifts}
             setVolunteerShifts={setVolunteerShifts}
             volunteerSignups={volunteerSignups}
