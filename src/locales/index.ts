@@ -13,6 +13,9 @@ export {
   type TranslationParams
 } from './translations';
 
+// Import getTranslation pour l'utiliser dans la fonction t
+import { getTranslation } from './translations';
+
 // Fonction helper rapide pour récupérer une traduction
 export const t = (language: 'fr' | 'en' | 'es', key: string) => {
   return getTranslation(language, key);
