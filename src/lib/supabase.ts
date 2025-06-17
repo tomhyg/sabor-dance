@@ -1,6 +1,7 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js'
-
+import { PerformanceTeam } from '../types/PerformanceTeam';
+export type { PerformanceTeam };
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
@@ -96,7 +97,7 @@ export type VolunteerSignup = {
   created_at: string
   updated_at: string
 }
-
+/*
 export type PerformanceTeam = {
   id: string
   event_id: string
@@ -111,7 +112,7 @@ export type PerformanceTeam = {
   director_phone?: string
   group_size: number
   dance_styles: string[]
-  performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro'
+  performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null | undefined;
   performance_video_url?: string
   music_file_url?: string
   song_title?: string
@@ -134,3 +135,4 @@ export type PerformanceTeam = {
   created_at: string
   updated_at: string
 }
+*/
