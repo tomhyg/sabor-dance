@@ -130,7 +130,6 @@ export const translations = {
     thisYear: 'Cette année',
     total: 'Total',
     pending: 'En attente',
-    completed: 'Terminé',
     inProgress: 'En cours',
 
     // ================================
@@ -699,7 +698,6 @@ export const translations = {
     live: 'Live',
     full: 'Full',
     cancelled: 'Cancelled',
-    completed: 'Completed',
     
     // Volunteer actions
     signUp: 'Sign Up',
@@ -1227,7 +1225,6 @@ export const translations = {
     live: 'Activo',
     full: 'Completo',
     cancelled: 'Cancelado',
-    completed: 'Completado',
     
     // Acciones de voluntarios
     signUp: 'Inscribirse',
