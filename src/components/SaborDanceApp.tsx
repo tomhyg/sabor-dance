@@ -172,9 +172,12 @@ const SaborDanceApp = () => {
       }
 
       // Récupérer les inscriptions si c'est un bénévole
-      if (currentUser.role === 'volunteer') {
+      if (currentUser?.role === 'volunteer') {
         // ✅ BON EVENT ID (le même que pour les shifts)
-        const { data: signupsData, error: signupsError } = await volunteerService.getVolunteerSignups(currentUser.id, 'a9d1c983-1456-4007-9aec-b297dd095ff7');
+        const { data: signupsData, error: signupsError } = await volunteerService.getVolunteerSignups(
+          currentUser!.id, // Utilisation de l'assertion non-null car on a vérifié au-dessus
+          'a9d1c983-1456-4007-9aec-b297dd095ff7'
+        );
         
         if (!signupsError && signupsData) {
           // Convertir les signups au format local
