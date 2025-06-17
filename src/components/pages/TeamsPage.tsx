@@ -10,7 +10,7 @@ interface PerformanceTeam {
   director_name: string;
   director_email: string;
   director_phone?: string | null;
-  studio_name?: string | null;
+  studio_name?: string;
   city: string;
   state?: string | null;
   country: string;

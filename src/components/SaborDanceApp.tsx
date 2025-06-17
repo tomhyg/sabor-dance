@@ -76,6 +76,7 @@ interface PerformanceTeam {
   director_email: string;
   studio_name: string;
   city: string;
+  event_id: string; // ← Ajoutez cette ligne
   country: string;
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
   performance_video_url?: string;
@@ -212,6 +213,7 @@ const SaborDanceApp = () => {
       setPerformanceTeams([
         {
           id: '1',
+          event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
           team_name: 'Boston Salsa Collective',
           director_name: 'María González',
           director_email: 'maria@bostonsalsa.com',
@@ -228,6 +230,7 @@ const SaborDanceApp = () => {
         {
           id: '2',
           team_name: 'Bachata Elegance',
+          event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
           director_name: 'Carlos Rodriguez',
           director_email: 'carlos@bachataelegance.com',
           studio_name: 'Elegance Dance Studio',
@@ -550,7 +553,7 @@ const SaborDanceApp = () => {
             t={t}
             currentUser={currentUser}
             performanceTeams={performanceTeams}
-            setPerformanceTeams={setPerformanceTeams}
+            setPerformanceTeams={setPerformanceTeams as any}
           />
         );
       case 'profiles':
