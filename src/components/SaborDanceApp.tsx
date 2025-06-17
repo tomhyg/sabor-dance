@@ -554,6 +554,7 @@ const SaborDanceApp = () => {
           <TeamsPage 
             t={t}
             currentUser={currentUser}
+            language={language} // ← Ajoutez cette ligne
             performanceTeams={performanceTeams}
             setPerformanceTeams={setPerformanceTeams}
           />
