@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Copy, Plus, CheckCircle, Calendar, Clock, X, QrCode, Scan, Check, AlertCircle, UserCheck, Bell, BellRing, List, Grid, Download, BarChart3, Edit } from 'lucide-react';
+import { Users, Copy, Plus, CheckCircle, Calendar, Clock, X, QrCode, Scan, Check, AlertCircle, UserCheck, Bell, BellRing, List, Grid, Download, BarChart3, Edit, FileSpreadsheet, FileText } from 'lucide-react';
 import CalendarView from './CalendarView';
-import GridView from './GridView'; // 🆕 NOUVEAU IMPORT
-import { exportVolunteersToExcel, exportGridToExcel } from '../../utils/exportUtils';
+import GridView from './GridView';
+import VolunteerDashboard from './VolunteerDashboard';
+import { exportVolunteerShifts, exportVolunteerSignups, quickExport, ExportFormat } from '../../utils/exportUtils';
+import { volunteerService } from '../../services/volunteerService';
 
 // Types
 interface VolunteerShift {
@@ -53,6 +55,7 @@ interface User {
 interface VolunteersPageProps {
   t: any;
   currentUser: User | null;
+  language: 'fr' | 'en' | 'es'; // Ajout du paramètre language
   volunteerShifts: VolunteerShift[];
   setVolunteerShifts: React.Dispatch<React.SetStateAction<VolunteerShift[]>>;
   volunteerSignups: VolunteerSignup[];
@@ -64,6 +67,7 @@ interface VolunteersPageProps {
 const VolunteersPage: React.FC<VolunteersPageProps> = ({
   t,
   currentUser,
+  language = 'en', // Valeur par défaut
   volunteerShifts,
   setVolunteerShifts,
   volunteerSignups,
@@ -80,10 +84,12 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   const [userVolunteerHours, setUserVolunteerHours] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'grid'>('list'); // 🆕 AJOUT 'grid'
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'grid'>('list');
   const [sortBy, setSortBy] = useState<'date' | 'missing' | 'none'>('none');
+  const [showVolunteerDashboard, setShowVolunteerDashboard] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   
-  // 🆕 ÉTATS POUR L'ÉDITION
+  // États pour l'édition
   const [showEditShift, setShowEditShift] = useState<VolunteerShift | null>(null);
   const [editShiftData, setEditShiftData] = useState({
     title: '',
@@ -107,23 +113,277 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     { id: 'vol5', full_name: 'Lisa Chen', phone: '+33 6 78 90 12 34', email: 'lisa.chen@email.com' }
   ];
 
-  // Handler pour export Excel
-  const handleExportVolunteers = () => {
-    try {
-      exportVolunteersToExcel(volunteerShifts, volunteerSignups, volunteers);
-      console.log('Export bénévoles généré avec succès');
-    } catch (error) {
-      console.error('Erreur export bénévoles:', error);
+  // Textes traduits
+  const texts = {
+    fr: {
+      pageTitle: 'Gestion des Bénévoles',
+      pageSubtitle: 'Organisez et gérez vos équipes bénévoles avec simplicité et efficacité',
+      myDashboard: 'Mon Dashboard',
+      createSlot: 'Créer un créneau',
+      scanQR: 'Scanner QR',
+      myProgress: 'Mon Progression Bénévolat',
+      hoursCompleted: 'Heures complétées',
+      congratulations: 'Félicitations ! Vos heures bénévoles sont complétées !',
+      notifications: 'Notifications',
+      myQRCode: 'Mon QR Code',
+      listView: 'Vue Liste',
+      calendarView: 'Vue Calendrier',
+      gridView: 'Vue Grille',
+      normalOrder: 'Ordre normal',
+      byDate: '📅 Par date',
+      urgentFirst: '🚨 Urgents d\'abord',
+      draft: 'BROUILLON',
+      published: 'PUBLIÉ',
+      full: 'COMPLET',
+      cancelled: 'ANNULÉ',
+      checkInRequired: 'Check-in requis',
+      present: 'présents',
+      publish: 'Publier',
+      signUp: 'S\'inscrire',
+      unsubscribe: 'Se désinscrire',
+      progress: 'Progression',
+      createShift: 'Créer un créneau',
+      title: 'Titre',
+      description: 'Description',
+      date: 'Date',
+      startTime: 'Heure début',
+      endTime: 'Heure fin',
+      nbVolunteers: 'Nb bénévoles',
+      roleType: 'Type de rôle',
+      checkInRequiredDay: 'Check-in requis le jour J',
+      createShiftBtn: 'Créer le créneau',
+      creating: 'Création en cours...',
+      scanQRCode: 'Scanner QR Code',
+      scanSimulated: 'Scanner simulé',
+      pasteQRBelow: 'Collez le code QR ci-dessous',
+      pasteQRHere: 'Collez le code QR ici',
+      validateScan: 'Valider Scan',
+      testQRCodes: 'Codes QR de test:',
+      notificationCenter: 'Centre de Notifications',
+      unread: 'non lues',
+      markAllRead: 'Tout marquer lu',
+      noNotifications: 'Aucune notification pour le moment',
+      usefulShortcuts: 'Raccourcis utiles',
+      planning: 'Planning',
+      modifyShift: 'Modifier le Créneau',
+      currentInfo: '📊 Informations actuelles',
+      currentlyRegistered: 'Inscrits actuellement:',
+      status: 'Statut:',
+      cancel: 'Annuler',
+      saveChanges: 'Sauvegarder les Modifications',
+      // Rôles
+      roleRegistration: 'Accueil',
+      roleTechSupport: 'Support technique',
+      roleSecurity: 'Sécurité',
+      roleArtistPickup: 'Transport artistes',
+      roleMerchandise: 'Merchandising',
+      roleGeneral: 'Général',
+      // Messages
+      fillAllFields: 'Veuillez remplir tous les champs obligatoires',
+      shiftCreatedSuccess: '✅ Créneau créé avec succès et sauvegardé !',
+      signupSuccess: '✅ Inscription réussie !',
+      unsubscribeSuccess: '✅ Désinscription réussie !',
+      statusChangedSuccess: '✅ Statut changé avec succès !',
+      changesPerformed: '✅ Modifications sauvegardées !',
+      qrInvalid: 'Code QR invalide',
+      volunteerNotFound: 'Bénévole non trouvé ou non inscrit',
+      alreadyCheckedIn: 'Bénévole déjà pointé',
+      checkedInSuccess: 'Bénévole pointé avec succès !',
+      enterQRCode: 'Veuillez saisir un code QR',
+      mustBeLoggedIn: 'Vous devez être connecté pour vous inscrire'
+    },
+    en: {
+      pageTitle: 'Volunteer Management',
+      pageSubtitle: 'Organize and manage your volunteer teams with simplicity and efficiency',
+      myDashboard: 'My Dashboard',
+      createSlot: 'Create Shift',
+      scanQR: 'Scan QR',
+      myProgress: 'My Volunteer Progress',
+      hoursCompleted: 'Hours completed',
+      congratulations: 'Congratulations! Your volunteer hours are completed!',
+      notifications: 'Notifications',
+      myQRCode: 'My QR Code',
+      listView: 'List View',
+      calendarView: 'Calendar View',
+      gridView: 'Grid View',
+      normalOrder: 'Normal order',
+      byDate: '📅 By date',
+      urgentFirst: '🚨 Urgent first',
+      draft: 'DRAFT',
+      published: 'PUBLISHED',
+      full: 'FULL',
+      cancelled: 'CANCELLED',
+      checkInRequired: 'Check-in required',
+      present: 'present',
+      publish: 'Publish',
+      signUp: 'Sign Up',
+      unsubscribe: 'Unsubscribe',
+      progress: 'Progress',
+      createShift: 'Create shift',
+      title: 'Title',
+      description: 'Description',
+      date: 'Date',
+      startTime: 'Start Time',
+      endTime: 'End Time',
+      nbVolunteers: 'Max volunteers',
+      roleType: 'Role Type',
+      checkInRequiredDay: 'Check-in required on the day',
+      createShiftBtn: 'Create shift',
+      creating: 'Creating...',
+      scanQRCode: 'Scan QR Code',
+      scanSimulated: 'Simulated scanner',
+      pasteQRBelow: 'Paste QR code below',
+      pasteQRHere: 'Paste QR code here',
+      validateScan: 'Validate Scan',
+      testQRCodes: 'Test QR codes:',
+      notificationCenter: 'Notification Center',
+      unread: 'unread',
+      markAllRead: 'Mark all read',
+      noNotifications: 'No notifications at the moment',
+      usefulShortcuts: 'Useful shortcuts',
+      planning: 'Schedule',
+      modifyShift: 'Modify Shift',
+      currentInfo: '📊 Current information',
+      currentlyRegistered: 'Currently registered:',
+      status: 'Status:',
+      cancel: 'Cancel',
+      saveChanges: 'Save Changes',
+      // Rôles
+      roleRegistration: 'Registration',
+      roleTechSupport: 'Tech Support',
+      roleSecurity: 'Security',
+      roleArtistPickup: 'Artist Pickup',
+      roleMerchandise: 'Merchandise',
+      roleGeneral: 'General',
+      // Messages
+      fillAllFields: 'Please fill all required fields',
+      shiftCreatedSuccess: '✅ Shift created and saved successfully!',
+      signupSuccess: '✅ Signup successful!',
+      unsubscribeSuccess: '✅ Unsubscribe successful!',
+      statusChangedSuccess: '✅ Status changed successfully!',
+      changesPerformed: '✅ Changes saved!',
+      qrInvalid: 'Invalid QR code',
+      volunteerNotFound: 'Volunteer not found or not registered',
+      alreadyCheckedIn: 'Volunteer already checked in',
+      checkedInSuccess: 'Volunteer checked in successfully!',
+      enterQRCode: 'Please enter a QR code',
+      mustBeLoggedIn: 'You must be logged in to sign up'
+    },
+    es: {
+      pageTitle: 'Gestión de Voluntarios',
+      pageSubtitle: 'Organiza y gestiona tus equipos de voluntarios con simplicidad y eficiencia',
+      myDashboard: 'Mi Panel',
+      createSlot: 'Crear Turno',
+      scanQR: 'Escanear QR',
+      myProgress: 'Mi Progreso Voluntario',
+      hoursCompleted: 'Horas completadas',
+      congratulations: '¡Felicitaciones! ¡Tus horas de voluntariado están completadas!',
+      notifications: 'Notificaciones',
+      myQRCode: 'Mi Código QR',
+      listView: 'Vista Lista',
+      calendarView: 'Vista Calendario',
+      gridView: 'Vista Cuadrícula',
+      normalOrder: 'Orden normal',
+      byDate: '📅 Por fecha',
+      urgentFirst: '🚨 Urgentes primero',
+      draft: 'BORRADOR',
+      published: 'PUBLICADO',
+      full: 'COMPLETO',
+      cancelled: 'CANCELADO',
+      checkInRequired: 'Check-in requerido',
+      present: 'presentes',
+      publish: 'Publicar',
+      signUp: 'Inscribirse',
+      unsubscribe: 'Desuscribirse',
+      progress: 'Progreso',
+      createShift: 'Crear turno',
+      title: 'Título',
+      description: 'Descripción',
+      date: 'Fecha',
+      startTime: 'Hora inicio',
+      endTime: 'Hora fin',
+      nbVolunteers: 'Máx. voluntarios',
+      roleType: 'Tipo de rol',
+      checkInRequiredDay: 'Check-in requerido el día',
+      createShiftBtn: 'Crear turno',
+      creating: 'Creando...',
+      scanQRCode: 'Escanear Código QR',
+      scanSimulated: 'Escáner simulado',
+      pasteQRBelow: 'Pega el código QR abajo',
+      pasteQRHere: 'Pega el código QR aquí',
+      validateScan: 'Validar Escaneo',
+      testQRCodes: 'Códigos QR de prueba:',
+      notificationCenter: 'Centro de Notificaciones',
+      unread: 'sin leer',
+      markAllRead: 'Marcar todo leído',
+      noNotifications: 'No hay notificaciones por el momento',
+      usefulShortcuts: 'Accesos directos útiles',
+      planning: 'Planificación',
+      modifyShift: 'Modificar Turno',
+      currentInfo: '📊 Información actual',
+      currentlyRegistered: 'Actualmente inscritos:',
+      status: 'Estado:',
+      cancel: 'Cancelar',
+      saveChanges: 'Guardar Cambios',
+      // Rôles
+      roleRegistration: 'Registro',
+      roleTechSupport: 'Soporte Técnico',
+      roleSecurity: 'Seguridad',
+      roleArtistPickup: 'Transporte de Artistas',
+      roleMerchandise: 'Merchandising',
+      roleGeneral: 'General',
+      // Messages
+      fillAllFields: 'Por favor complete todos los campos requeridos',
+      shiftCreatedSuccess: '✅ ¡Turno creado y guardado exitosamente!',
+      signupSuccess: '✅ ¡Inscripción exitosa!',
+      unsubscribeSuccess: '✅ ¡Desinscripción exitosa!',
+      statusChangedSuccess: '✅ ¡Estado cambiado exitosamente!',
+      changesPerformed: '✅ ¡Cambios guardados!',
+      qrInvalid: 'Código QR inválido',
+      volunteerNotFound: 'Voluntario no encontrado o no registrado',
+      alreadyCheckedIn: 'Voluntario ya registrado',
+      checkedInSuccess: '¡Voluntario registrado exitosamente!',
+      enterQRCode: 'Por favor ingrese un código QR',
+      mustBeLoggedIn: 'Debe estar conectado para inscribirse'
     }
   };
 
-  // 🆕 Handler pour export grille
-  const handleExportGrid = (selectedWeek: Date) => {
+  const txt = texts[language];
+
+  // Fonction pour ouvrir le dashboard bénévole
+  const openVolunteerDashboard = () => {
+    if (currentUser?.role === 'volunteer') {
+      setShowVolunteerDashboard(true);
+    }
+  };
+
+  // Handler pour export Excel avec langue
+  const handleExportVolunteers = (format: 'xlsx' | 'csv' | 'pdf' = 'xlsx') => {
     try {
-      exportGridToExcel(volunteerShifts, volunteerSignups, volunteers, selectedWeek);
-      console.log('Export grille généré avec succès pour la semaine du', selectedWeek.toLocaleDateString());
+      quickExport('volunteers', {
+        shifts: volunteerShifts,
+        signups: volunteerSignups,
+        volunteers: volunteers,
+        eventName: 'Boston Salsa Festival 2025'
+      }, format);
+      console.log(`Export volunteers ${format.toUpperCase()} generated successfully`);
     } catch (error) {
-      console.error('Erreur export grille:', error);
+      console.error('Error exporting volunteers:', error);
+    }
+  };
+
+  // Handler pour export grille (CSV par défaut)
+  const handleExportGrid = (selectedWeek?: Date) => {
+    try {
+      quickExport('volunteers', {
+        shifts: volunteerShifts,
+        signups: volunteerSignups,
+        volunteers: volunteers,
+        eventName: `BSF 2025 - Week of ${selectedWeek?.toLocaleDateString() || 'current'}`
+      }, 'csv');
+      console.log('Grid export generated successfully');
+    } catch (error) {
+      console.error('Error exporting grid:', error);
     }
   };
 
@@ -161,8 +421,12 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               upcomingNotifications.push({
                 id: `reminder-${shift.id}`,
                 type: 'reminder',
-                title: '⏰ Rappel : Créneau dans 1h',
-                message: `${shift.title} commence à ${shift.start_time}`,
+                title: language === 'fr' ? '⏰ Rappel : Créneau dans 1h' : 
+                       language === 'es' ? '⏰ Recordatorio: Turno en 1h' : 
+                       '⏰ Reminder: Shift in 1h',
+                message: language === 'fr' ? `${shift.title} commence à ${shift.start_time}` :
+                         language === 'es' ? `${shift.title} comienza a las ${shift.start_time}` :
+                         `${shift.title} starts at ${shift.start_time}`,
                 time: new Date().toLocaleTimeString(),
                 shift: shift,
                 read: false
@@ -173,8 +437,12 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               upcomingNotifications.push({
                 id: `urgent-${shift.id}`,
                 type: 'urgent',
-                title: '🚨 Urgent : Créneau dans 30min',
-                message: `N'oubliez pas votre QR Code pour ${shift.title}`,
+                title: language === 'fr' ? '🚨 Urgent : Créneau dans 30min' :
+                       language === 'es' ? '🚨 Urgente: Turno en 30min' :
+                       '🚨 Urgent: Shift in 30min',
+                message: language === 'fr' ? `N'oubliez pas votre QR Code pour ${shift.title}` :
+                         language === 'es' ? `No olvides tu código QR para ${shift.title}` :
+                         `Don't forget your QR Code for ${shift.title}`,
                 time: new Date().toLocaleTimeString(),
                 shift: shift,
                 read: false
@@ -183,21 +451,35 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           }
         });
 
+        const welcomeMessage = language === 'fr' ? '🎭 Bienvenue au Boston Salsa Festival !' :
+                              language === 'es' ? '🎭 ¡Bienvenido al Boston Salsa Festival!' :
+                              '🎭 Welcome to Boston Salsa Festival!';
+        const welcomeDescription = language === 'fr' ? 'Merci d\'être bénévole. Consultez vos créneaux ci-dessous.' :
+                                  language === 'es' ? 'Gracias por ser voluntario. Consulta tus turnos abajo.' :
+                                  'Thank you for volunteering. Check your shifts below.';
+
         upcomingNotifications.push({
           id: 'welcome',
           type: 'info',
-          title: '🎭 Bienvenue au Boston Salsa Festival !',
-          message: 'Merci d\'être bénévole. Consultez vos créneaux ci-dessous.',
+          title: welcomeMessage,
+          message: welcomeDescription,
           time: '08:00',
           read: false
         });
 
         if (userVolunteerHours >= requiredHours) {
+          const completedMessage = language === 'fr' ? '✅ Heures bénévoles complétées !' :
+                                  language === 'es' ? '✅ ¡Horas de voluntariado completadas!' :
+                                  '✅ Volunteer hours completed!';
+          const completedDescription = language === 'fr' ? 'Félicitations ! Vous avez terminé vos 8h requises.' :
+                                      language === 'es' ? '¡Felicitaciones! Has completado tus 8h requeridas.' :
+                                      'Congratulations! You have completed your required 8h.';
+
           upcomingNotifications.push({
             id: 'completed',
             type: 'success',
-            title: '✅ Heures bénévoles complétées !',
-            message: 'Félicitations ! Vous avez terminé vos 8h requises.',
+            title: completedMessage,
+            message: completedDescription,
             time: new Date().toLocaleTimeString(),
             read: false
           });
@@ -209,7 +491,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
       generateNotifications();
     }
-  }, [currentUser, volunteerSignups, volunteerShifts, userVolunteerHours]);
+  }, [currentUser, volunteerSignups, volunteerShifts, userVolunteerHours, language]);
 
   const markNotificationRead = (notificationId: string) => {
     setNotifications(notifications.map(n => 
@@ -229,13 +511,13 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
   const handleQRScan = () => {
     if (!qrInput.trim()) {
-      setScanResult({type: 'error', message: 'Veuillez saisir un code QR'});
+      setScanResult({type: 'error', message: txt.enterQRCode});
       return;
     }
 
     const qrMatch = qrInput.match(/SABOR_VOL_([^_]+)_/);
     if (!qrMatch) {
-      setScanResult({type: 'error', message: 'Code QR invalide'});
+      setScanResult({type: 'error', message: txt.qrInvalid});
       return;
     }
 
@@ -247,12 +529,12 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     );
 
     if (!volunteerSignup) {
-      setScanResult({type: 'error', message: 'Bénévole non trouvé ou non inscrit'});
+      setScanResult({type: 'error', message: txt.volunteerNotFound});
       return;
     }
 
     if (volunteerSignup.status === 'checked_in') {
-      setScanResult({type: 'error', message: 'Bénévole déjà pointé'});
+      setScanResult({type: 'error', message: txt.alreadyCheckedIn});
       return;
     }
 
@@ -264,7 +546,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       )
     );
 
-    setScanResult({type: 'success', message: `Bénévole pointé avec succès !`});
+    setScanResult({type: 'success', message: txt.checkedInSuccess});
     setQrInput('');
   };
 
@@ -272,100 +554,237 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     navigator.clipboard.writeText(qrCode);
   };
 
-  const handleCreateShift = () => {
-    const shift: VolunteerShift = {
-      id: Date.now().toString(),
-      ...newShift,
-      current_volunteers: 0,
-      status: 'draft'
-    };
-    setVolunteerShifts([...volunteerShifts, shift]);
-    setShowCreateShift(false);
-    setNewShift({
-      title: '',
-      description: '',
-      shift_date: '',
-      start_time: '',
-      end_time: '',
-      max_volunteers: 1,
-      role_type: '',
-      check_in_required: true
-    });
+  const handleCreateShift = async () => {
+    if (isCreating) return;
+    
+    setIsCreating(true);
+    try {
+      if (!newShift.title || !newShift.shift_date || !newShift.start_time || !newShift.end_time) {
+        alert(txt.fillAllFields);
+        return;
+      }
+
+      const shiftData = {
+        event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
+        title: newShift.title,
+        description: newShift.description || '',
+        shift_date: newShift.shift_date,
+        start_time: newShift.start_time,
+        end_time: newShift.end_time,
+        max_volunteers: newShift.max_volunteers,
+        current_volunteers: 0,
+        role_type: newShift.role_type || 'general',
+        difficulty_level: 'beginner',
+        status: 'draft',
+        check_in_required: newShift.check_in_required,
+        qr_code_enabled: true,
+        created_by: currentUser?.id || ''
+      };
+
+      const { data, error } = await volunteerService.createShift(shiftData);
+
+      if (error) {
+        console.error('❌ Error creating shift:', error);
+        alert(`Error creating shift: ${error.message}`);
+        return;
+      }
+
+      const localShift: VolunteerShift = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        shift_date: data.shift_date,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        max_volunteers: data.max_volunteers,
+        current_volunteers: data.current_volunteers || 0,
+        role_type: data.role_type,
+        status: data.status,
+        check_in_required: data.check_in_required || false
+      };
+
+      setVolunteerShifts(prevShifts => [...prevShifts, localShift]);
+      
+      setShowCreateShift(false);
+      setNewShift({
+        title: '',
+        description: '',
+        shift_date: '',
+        start_time: '',
+        end_time: '',
+        max_volunteers: 1,
+        role_type: '',
+        check_in_required: true
+      });
+
+      alert(txt.shiftCreatedSuccess);
+
+    } catch (error: any) {
+      console.error('❌ Error catch:', error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const signUpForShift = (shiftId: string) => {
-    const shift = volunteerShifts.find(s => s.id === shiftId);
-    if (!shift || shift.current_volunteers >= shift.max_volunteers) return;
-    
-    const alreadySignedUp = volunteerSignups.some(signup => 
-      signup.shift_id === shiftId && 
-      signup.volunteer_id === (currentUser?.id || '1') &&
-      signup.status !== 'cancelled'
-    );
-    
-    if (alreadySignedUp) {
-      alert('Vous êtes déjà inscrit(e) à ce créneau !');
+  const signUpForShift = async (shiftId: string) => {
+    if (!currentUser?.id) {
+      alert(txt.mustBeLoggedIn);
       return;
     }
-
-    const signup: VolunteerSignup = {
-      id: Date.now().toString(),
-      shift_id: shiftId,
-      volunteer_id: currentUser?.id || '1',
-      status: 'signed_up',
-      signed_up_at: new Date().toISOString(),
-      reminder_sent: false
-    };
-    
-    setVolunteerSignups([...volunteerSignups, signup]);
-    
-    const shiftDuration = calculateShiftDuration(shift.start_time, shift.end_time);
-    setUserVolunteerHours(prev => prev + shiftDuration);
-    
-    setVolunteerShifts(shifts =>
-      shifts.map(s =>
-        s.id === shiftId 
-          ? { 
-              ...s, 
-              current_volunteers: s.current_volunteers + 1,
-              status: s.current_volunteers + 1 >= s.max_volunteers ? 'full' : s.status
-            }
-          : s
-      )
-    );
+  
+    try {
+      const existingCancelledSignup = volunteerSignups.find(signup => 
+        signup.shift_id === shiftId && 
+        signup.volunteer_id === currentUser.id &&
+        signup.status === 'cancelled'
+      );
+  
+      if (existingCancelledSignup) {
+        const { data, error } = await volunteerService.updateSignup(existingCancelledSignup.id, {
+          status: 'signed_up',
+          signed_up_at: new Date().toISOString(),
+          cancelled_at: null
+        });
+  
+        if (error) {
+          console.error('❌ Error reactivating:', error);
+          alert(`Error during re-registration: ${error.message}`);
+          return;
+        }
+  
+        setVolunteerSignups(signups =>
+          signups.map(s =>
+            s.id === existingCancelledSignup.id 
+              ? { ...s, status: 'signed_up', signed_up_at: new Date().toISOString() }
+              : s
+          )
+        );
+  
+      } else {
+        const { data, error } = await volunteerService.signUpForShift(
+          shiftId, 
+          currentUser.id, 
+          'a9d1c983-1456-4007-9aec-b297dd095ff7'
+        );
+  
+        if (error) {
+          console.error('❌ Error signing up:', error);
+          alert(`Error during signup: ${error.message}`);
+          return;
+        }
+  
+        const localSignup = {
+          id: data.id,
+          shift_id: shiftId,
+          volunteer_id: currentUser.id,
+          status: data.status,
+          signed_up_at: data.signed_up_at,
+          reminder_sent: data.reminder_sent || false,
+          qr_code: data.qr_code
+        };
+  
+        setVolunteerSignups(prev => [...prev, localSignup]);
+      }
+      
+      const shift = volunteerShifts.find(s => s.id === shiftId);
+      if (shift) {
+        const shiftDuration = calculateShiftDuration(shift.start_time, shift.end_time);
+        setUserVolunteerHours(prev => prev + shiftDuration);
+        
+        setVolunteerShifts(shifts =>
+          shifts.map(s =>
+            s.id === shiftId 
+              ? { 
+                  ...s, 
+                  current_volunteers: s.current_volunteers + 1,
+                  status: s.current_volunteers + 1 >= s.max_volunteers ? 'full' : s.status
+                }
+              : s
+          )
+        );
+      }
+  
+      alert(txt.signupSuccess);
+  
+    } catch (error) {
+      console.error('❌ Error catch:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
-  const unsubscribeFromShift = (shiftId: string) => {
+  // Calculer les heures depuis les inscriptions Supabase
+  const calculateUserHours = () => {
+    let totalHours = 0;
+  
+    volunteerSignups.forEach(signup => {
+     if (signup.status !== 'cancelled') {
+       const shift = volunteerShifts.find(s => s.id === signup.shift_id);
+        if (shift) {
+          const shiftDuration = calculateShiftDuration(shift.start_time, shift.end_time);
+          totalHours += shiftDuration;
+       }
+     }
+    });
+  
+    setUserVolunteerHours(totalHours);
+  };
+
+  useEffect(() => {
+    if (volunteerSignups.length > 0 && volunteerShifts.length > 0) {
+      calculateUserHours();
+    }
+  }, [volunteerSignups, volunteerShifts]);
+
+  const unsubscribeFromShift = async (shiftId: string) => {
+    if (!currentUser?.id) return;
+  
     const signup = volunteerSignups.find(s => 
       s.shift_id === shiftId && 
-      s.volunteer_id === (currentUser?.id || '1') &&
+      s.volunteer_id === currentUser.id &&
       s.status !== 'cancelled'
     );
     
     if (!signup) return;
-    
-    setVolunteerSignups(signups =>
-      signups.map(s =>
-        s.id === signup.id ? { ...s, status: 'cancelled' as const } : s
-      )
-    );
-    
-    const shift = volunteerShifts.find(s => s.id === shiftId);
-    if (shift) {
-      const shiftDuration = calculateShiftDuration(shift.start_time, shift.end_time);
-      setUserVolunteerHours(prev => Math.max(0, prev - shiftDuration));
-      
-      setVolunteerShifts(shifts =>
-        shifts.map(s =>
-          s.id === shiftId 
-            ? { 
-                ...s, 
-                current_volunteers: Math.max(0, s.current_volunteers - 1),
-                status: s.current_volunteers - 1 < s.max_volunteers ? 'live' : s.status
-              }
-            : s
+  
+    try {
+      const { data, error } = await volunteerService.cancelSignup(signup.id);
+  
+      if (error) {
+        console.error('❌ Error cancelling:', error);
+        alert(`Error during cancellation: ${error.message}`);
+        return;
+      }
+  
+      setVolunteerSignups(signups =>
+        signups.map(s =>
+          s.id === signup.id ? { ...s, status: 'cancelled' } : s
         )
       );
+      
+      const shift = volunteerShifts.find(s => s.id === shiftId);
+      if (shift) {
+        const shiftDuration = calculateShiftDuration(shift.start_time, shift.end_time);
+        setUserVolunteerHours(prev => Math.max(0, prev - shiftDuration));
+        
+        setVolunteerShifts(shifts =>
+          shifts.map(s =>
+            s.id === shiftId 
+              ? { 
+                  ...s, 
+                  current_volunteers: Math.max(0, s.current_volunteers - 1),
+                  status: s.current_volunteers - 1 < s.max_volunteers ? 'live' : s.status
+                }
+              : s
+          )
+        );
+      }
+  
+      alert(txt.unsubscribeSuccess);
+  
+    } catch (error) {
+      console.error('❌ Error catch:', error);
+      alert(`Error: ${error.message}`);
     }
   };
 
@@ -383,17 +802,31 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
   };
 
-  const changeShiftStatus = (shiftId: string, newStatus: 'draft' | 'live' | 'full' | 'cancelled') => {
-    setVolunteerShifts(shifts =>
-      shifts.map(shift =>
-        shift.id === shiftId ? { ...shift, status: newStatus } : shift
-      )
-    );
+  const changeShiftStatus = async (shiftId: string, newStatus: 'draft' | 'live' | 'full' | 'cancelled') => {
+    try {
+      const { data, error } = await volunteerService.updateShift(shiftId, { status: newStatus });
+  
+      if (error) {
+        console.error('❌ Error changing status:', error);
+        alert(`Error changing status: ${error.message}`);
+        return;
+      }
+  
+      setVolunteerShifts(shifts =>
+        shifts.map(shift =>
+          shift.id === shiftId ? { ...shift, status: newStatus } : shift
+        )
+      );
+  
+      alert(txt.statusChangedSuccess);
+  
+    } catch (error) {
+      console.error('❌ Error catch:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
-  // 🆕 FONCTION POUR ÉDITER UN CRÉNEAU (utilisée par GridView)
   const handleEditShift = (shift: VolunteerShift) => {
-    // Remplir le formulaire avec les données du créneau
     setEditShiftData({
       title: shift.title,
       description: shift.description,
@@ -404,38 +837,43 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       role_type: shift.role_type,
       check_in_required: shift.check_in_required
     });
-    
-    // Ouvrir le modal d'édition
     setShowEditShift(shift);
   };
 
-  // 🆕 SAUVEGARDER L'ÉDITION
-  const saveEditShift = () => {
+  const saveEditShift = async () => {
     if (!showEditShift) return;
-
-    // Mettre à jour le créneau
-    const updatedShift = { ...showEditShift, ...editShiftData };
     
-    setVolunteerShifts(shifts =>
-      shifts.map(shift =>
-        shift.id === showEditShift.id 
-          ? updatedShift
-          : shift
-      )
-    );
+    try {
+      const { data, error } = await volunteerService.updateShift(showEditShift.id, editShiftData);
 
-    // Fermer le modal
-    setShowEditShift(null);
-    resetEditForm();
+      if (error) {
+        console.error('❌ Error updating:', error);
+        alert(`Error updating: ${error.message}`);
+        return;
+      }
+
+      const updatedShift = { ...showEditShift, ...editShiftData };
+      setVolunteerShifts(shifts =>
+        shifts.map(shift =>
+          shift.id === showEditShift.id ? updatedShift : shift
+        )
+      );
+      
+      setShowEditShift(null);
+      resetEditForm();
+      alert(txt.changesPerformed);
+
+    } catch (error: any) {
+      console.error('❌ Error catch:', error);
+      alert(`Error: ${error.message}`);
+    }
   };
 
-  // 🆕 ANNULER L'ÉDITION
   const cancelEditShift = () => {
     setShowEditShift(null);
     resetEditForm();
   };
 
-  // 🆕 RESET FORMULAIRE
   const resetEditForm = () => {
     setEditShiftData({
       title: '',
@@ -462,38 +900,68 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-5xl md:text-6xl font-black text-white mb-4 tracking-tight">
-                Gestion des Bénévoles
+                {txt.pageTitle}
               </h1>
               <p className="text-xl text-green-100 max-w-2xl">
-                Organisez et gérez vos équipes bénévoles avec simplicité et efficacité
+                {txt.pageSubtitle}
               </p>
             </div>
             
-            {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
-              <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
+              {/* Bouton Dashboard Bénévole */}
+              {currentUser?.role === 'volunteer' && (
                 <button
-                  onClick={() => setShowCreateShift(true)}
-                  className="group bg-gradient-to-r from-lime-500 to-green-500 text-white px-8 py-4 rounded-xl font-bold hover:from-lime-600 hover:to-green-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2"
+                  onClick={openVolunteerDashboard}
+                  className="group bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2"
                 >
-                  <Plus size={20} />
-                  {t.createSlot}
+                  <UserCheck size={20} />
+                  {txt.myDashboard}
                 </button>
-                <button
-                  onClick={() => setShowQRScanner(true)}
-                  className="group bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-2"
-                >
-                  <Scan size={18} />
-                  Scanner QR
-                </button>
-                <button
-                  onClick={handleExportVolunteers}
-                  className="group bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-2xl transform hover:scale-105"
-                >
-                  <Download size={18} />
-                  Export Excel
-                </button>
-              </div>
-            )}
+              )}
+              
+              {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
+                <>
+                  <button
+                    onClick={() => setShowCreateShift(true)}
+                    disabled={isCreating}
+                    className={`group bg-gradient-to-r from-lime-500 to-green-500 text-white px-8 py-4 rounded-xl font-bold hover:from-lime-600 hover:to-green-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl flex items-center gap-2 ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Plus size={20} />
+                    {isCreating ? txt.creating : txt.createSlot}
+                  </button>
+                  <button
+                    onClick={() => setShowQRScanner(true)}
+                    className="group bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-2"
+                  >
+                    <Scan size={18} />
+                    {txt.scanQR}
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleExportVolunteers('xlsx')}
+                      className="bg-green-500/20 text-green-300 px-4 py-2 rounded-lg hover:bg-green-500/30 transition-colors text-sm flex items-center gap-2 font-semibold"
+                    >
+                      <FileSpreadsheet size={16} />
+                      XLSX
+                    </button>
+                    <button
+                      onClick={() => handleExportVolunteers('csv')}
+                      className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-lg hover:bg-blue-500/30 transition-colors text-sm flex items-center gap-2 font-semibold"
+                    >
+                      <FileText size={16} />
+                      CSV
+                    </button>
+                    <button
+                      onClick={() => handleExportVolunteers('pdf')}
+                      className="bg-red-500/20 text-red-300 px-4 py-2 rounded-lg hover:bg-red-500/30 transition-colors text-sm flex items-center gap-2 font-semibold"
+                    >
+                      <FileText size={16} />
+                      PDF
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -506,10 +974,10 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                   <Users className="w-8 h-8 text-green-400" />
-                  Mon Progression Bénévolat
+                  {txt.myProgress}
                 </h2>
                 <div className="flex items-center justify-between mb-6">
-                  <span className="text-gray-300 text-lg">Heures complétées</span>
+                  <span className="text-gray-300 text-lg">{txt.hoursCompleted}</span>
                   <span className="font-bold text-2xl text-white">{userVolunteerHours}h / {requiredHours}h</span>
                 </div>
                 <div className="w-full bg-gray-700/50 rounded-full h-4 mb-4">
@@ -522,13 +990,13 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                   <div className="p-6 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-2xl">
                     <div className="flex items-center gap-3 text-green-300">
                       <CheckCircle size={24} />
-                      <span className="font-bold text-lg">Félicitations ! Vos heures bénévoles sont complétées !</span>
+                      <span className="font-bold text-lg">{txt.congratulations}</span>
                     </div>
                   </div>
                 )}
               </div>
               
-              {/* QR Code personnel */}
+              {/* Actions bénévole */}
               <div className="ml-8 flex flex-col gap-3">
                 <div className="relative">
                   <button
@@ -536,7 +1004,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-3 rounded-xl font-bold hover:from-orange-600 hover:to-red-700 transition-all duration-300 flex items-center gap-2 relative"
                   >
                     <Bell size={20} />
-                    Notifications
+                    {txt.notifications}
                     {unreadCount > 0 && (
                       <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
                         {unreadCount}
@@ -550,14 +1018,14 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                   className="bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-2"
                 >
                   <QrCode size={20} />
-                  Mon QR Code
+                  {txt.myQRCode}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* 🆕 Toggle Vue Liste / Calendrier / Grille - MODIFIÉ */}
+        {/* Toggle Vue Liste / Calendrier / Grille */}
         <div className="flex justify-center mb-8">
           <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-2xl p-2">
             <div className="flex">
@@ -570,7 +1038,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 }`}
               >
                 <List size={20} />
-                Vue Liste
+                {txt.listView}
               </button>
               <button
                 onClick={() => setViewMode('calendar')}
@@ -581,9 +1049,8 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 }`}
               >
                 <Grid size={20} />
-                Vue Calendrier
+                {txt.calendarView}
               </button>
-              {/* 🆕 NOUVEAU BOUTON GRILLE */}
               <button
                 onClick={() => setViewMode('grid')}
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
@@ -593,7 +1060,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 }`}
               >
                 <BarChart3 size={20} />
-                Vue Grille
+                {txt.gridView}
               </button>
             </div>
           </div>
@@ -612,7 +1079,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                       : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
                 >
-                  Ordre normal
+                  {txt.normalOrder}
                 </button>
                 <button
                   onClick={() => setSortBy('date')}
@@ -622,7 +1089,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                       : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
                 >
-                  📅 Par date
+                  {txt.byDate}
                 </button>
                 <button
                   onClick={() => setSortBy('missing')}
@@ -632,14 +1099,14 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                       : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
                   }`}
                 >
-                  🚨 Urgents d'abord
+                  {txt.urgentFirst}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* 🆕 Contenu selon le mode de vue - MODIFIÉ */}
+        {/* Contenu selon le mode de vue */}
         {viewMode === 'calendar' ? (
           <CalendarView
             t={t}
@@ -667,7 +1134,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             }}
           />
         ) : viewMode === 'grid' ? (
-          // 🆕 NOUVELLE VUE GRILLE
           <GridView
             volunteerShifts={volunteerShifts}
             volunteerSignups={volunteerSignups}
@@ -727,20 +1193,20 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                         shift.current_volunteers >= shift.max_volunteers ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
                         'bg-red-500/20 text-red-300 border border-red-500/30'
                       }`}>
-                        {shift.status === 'draft' ? 'BROUILLON' :
-                         shift.status === 'live' ? (shift.current_volunteers >= shift.max_volunteers ? 'COMPLET' : 'PUBLIÉ') :
-                         shift.status === 'cancelled' ? 'ANNULÉ' :
-                         shift.current_volunteers >= shift.max_volunteers ? 'COMPLET' : 'PUBLIÉ'}
+                        {shift.status === 'draft' ? txt.draft :
+                         shift.status === 'live' ? (shift.current_volunteers >= shift.max_volunteers ? txt.full : txt.published) :
+                         shift.status === 'cancelled' ? txt.cancelled :
+                         shift.current_volunteers >= shift.max_volunteers ? txt.full : txt.published}
                       </span>
                       {shift.check_in_required && (
                         <span className="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                          Check-in requis
+                          {txt.checkInRequired}
                         </span>
                       )}
                       {shift.check_in_required && (
                         <span className="px-3 py-1 rounded-full text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
                           <UserCheck size={12} />
-                          {checkedInCount}/{shift.current_volunteers} présents
+                          {checkedInCount}/{shift.current_volunteers} {txt.present}
                         </span>
                       )}
                     </div>
@@ -757,7 +1223,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                       </div>
                       <div className="flex items-center gap-2">
                         <Users size={20} className="text-green-400" />
-                        <span className="font-medium">{shift.current_volunteers}/{shift.max_volunteers} bénévoles</span>
+                        <span className="font-medium">{shift.current_volunteers}/{shift.max_volunteers} {t.volunteers}</span>
                       </div>
                     </div>
                   </div>
@@ -773,7 +1239,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                               : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-gray-500/25'
                           }`}
                         >
-                          {shift.status === 'draft' ? t.publish : t.draft}
+                          {shift.status === 'draft' ? txt.publish : t.draft}
                         </button>
                       </div>
                     )}
@@ -784,7 +1250,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                           onClick={() => unsubscribeFromShift(shift.id)}
                           className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-8 py-3 rounded-xl font-bold hover:from-red-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
                         >
-                          Se désinscrire
+                          {txt.unsubscribe}
                         </button>
                       ) : (
                         shift.current_volunteers < shift.max_volunteers && (
@@ -792,14 +1258,14 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                             onClick={() => signUpForShift(shift.id)}
                             className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
                           >
-                            {t.signUp}
+                            {txt.signUp}
                           </button>
                         )
                       )
                     ) : (shift.current_volunteers >= shift.max_volunteers) ? (
                       !isSignedUpForShift(shift.id) && (
                         <div className="bg-gray-600/30 text-gray-400 px-6 py-3 rounded-xl font-bold text-center border border-gray-500/30">
-                          Complet
+                          {txt.full}
                         </div>
                       )
                     ) : null}
@@ -809,7 +1275,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 {/* Progress bar */}
                 <div className="bg-gray-700/50 rounded-xl p-4">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-medium text-gray-300">{t.progress}</span>
+                    <span className="text-sm font-medium text-gray-300">{txt.progress}</span>
                     <span className="text-sm text-gray-400">
                       {Math.round((shift.current_volunteers / shift.max_volunteers) * 100)}%
                     </span>
@@ -828,12 +1294,24 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
         </div>
         )}
 
+        {/* Modal Volunteer Dashboard */}
+        {showVolunteerDashboard && currentUser && (
+          <VolunteerDashboard
+            currentUser={currentUser}
+            volunteerShifts={volunteerShifts}
+            volunteerSignups={volunteerSignups}
+            setVolunteerSignups={setVolunteerSignups}
+            setVolunteerShifts={setVolunteerShifts}
+            onClose={() => setShowVolunteerDashboard(false)}
+          />
+        )}
+
         {/* Modal de création de créneau */}
         {showCreateShift && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-8 w-full max-w-2xl">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold text-white">Créer un créneau</h2>
+                <h2 className="text-3xl font-bold text-white">{txt.createShift}</h2>
                 <button onClick={() => setShowCreateShift(false)} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
                   <X size={24} />
                 </button>
@@ -841,29 +1319,33 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Titre</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{txt.title} *</label>
                   <input
                     type="text"
                     value={newShift.title}
                     onChange={(e) => setNewShift({...newShift, title: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
-                    placeholder="Ex: Accueil et enregistrement"
+                    placeholder={language === 'fr' ? "Ex: Accueil et enregistrement" : 
+                                language === 'es' ? "Ej: Recepción y registro" : 
+                                "Ex: Reception and registration"}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Description</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{txt.description}</label>
                   <textarea
                     value={newShift.description}
                     onChange={(e) => setNewShift({...newShift, description: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-green-500 focus:border-green-500 h-24 transition-all duration-200"
-                    placeholder="Décrivez les tâches du bénévole..."
+                    placeholder={language === 'fr' ? "Décrivez les tâches du bénévole..." : 
+                                language === 'es' ? "Describe las tareas del voluntario..." : 
+                                "Describe the volunteer tasks..."}
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Date</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.date} *</label>
                     <input
                       type="date"
                       value={newShift.shift_date}
@@ -872,7 +1354,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Nb bénévoles</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.nbVolunteers}</label>
                     <input
                       type="number"
                       min="1"
@@ -885,7 +1367,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Heure début</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.startTime} *</label>
                     <input
                       type="time"
                       value={newShift.start_time}
@@ -894,7 +1376,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Heure fin</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.endTime} *</label>
                     <input
                       type="time"
                       value={newShift.end_time}
@@ -904,6 +1386,23 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{txt.roleType}</label>
+                  <select
+                    value={newShift.role_type}
+                    onChange={(e) => setNewShift({...newShift, role_type: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                  >
+                    <option value="">{language === 'fr' ? 'Sélectionner un type' : language === 'es' ? 'Seleccionar un tipo' : 'Select a type'}</option>
+                    <option value="registration_desk">{txt.roleRegistration}</option>
+                    <option value="tech_support">{txt.roleTechSupport}</option>
+                    <option value="security">{txt.roleSecurity}</option>
+                    <option value="artist_pickup">{txt.roleArtistPickup}</option>
+                    <option value="merchandise">{txt.roleMerchandise}</option>
+                    <option value="general">{txt.roleGeneral}</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -911,14 +1410,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     onChange={(e) => setNewShift({...newShift, check_in_required: e.target.checked})}
                     className="w-5 h-5 text-green-500 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
                   />
-                  <label className="text-gray-300 font-medium">Check-in requis le jour J</label>
+                  <label className="text-gray-300 font-medium">{txt.checkInRequiredDay}</label>
                 </div>
 
                 <button
                   onClick={handleCreateShift}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
+                  disabled={isCreating}
+                  className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl ${
+                    isCreating 
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+                  }`}
                 >
-                  Créer le créneau
+                  {isCreating ? `🔄 ${txt.creating}` : txt.createShiftBtn}
                 </button>
               </div>
             </div>
@@ -932,7 +1436,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                   <Scan className="w-8 h-8 text-blue-400" />
-                  Scanner QR Code
+                  {txt.scanQRCode}
                 </h2>
                 <button onClick={() => setShowQRScanner(false)} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
                   <X size={24} />
@@ -943,8 +1447,8 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 <div className="relative bg-gray-700/30 border-2 border-dashed border-gray-500 rounded-xl h-48 flex items-center justify-center mb-4">
                   <div className="text-center">
                     <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-400">Scanner simulé</p>
-                    <p className="text-gray-500 text-sm">Collez le code QR ci-dessous</p>
+                    <p className="text-gray-400">{txt.scanSimulated}</p>
+                    <p className="text-gray-500 text-sm">{txt.pasteQRBelow}</p>
                   </div>
                   
                   <div className="absolute inset-4 border border-blue-500/50 rounded-lg">
@@ -957,7 +1461,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     type="text"
                     value={qrInput}
                     onChange={(e) => setQrInput(e.target.value)}
-                    placeholder="Collez le code QR ici (ex: SABOR_VOL_1_...)"
+                    placeholder={`${txt.pasteQRHere} (ex: SABOR_VOL_1_...)`}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   />
                   
@@ -966,7 +1470,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-bold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center gap-2"
                   >
                     <Check size={20} />
-                    Valider Scan
+                    {txt.validateScan}
                   </button>
                 </div>
 
@@ -989,7 +1493,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               </div>
 
               <div className="border-t border-gray-600/30 pt-6">
-                <h4 className="text-white font-semibold mb-3">Codes QR de test:</h4>
+                <h4 className="text-white font-semibold mb-3">{txt.testQRCodes}</h4>
                 <div className="space-y-2 text-sm">
                   <button
                     onClick={() => setQrInput('SABOR_VOL_1_1735804800000')}
@@ -1016,7 +1520,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                   <QrCode className="w-8 h-8 text-purple-400" />
-                  Mon QR Code
+                  {txt.myQRCode}
                 </h2>
                 <button onClick={() => setShowMyQR(false)} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
                   <X size={24} />
@@ -1038,12 +1542,12 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 </div>
 
                 <div className="mb-6">
-                  <h3 className="text-xl font-bold text-white mb-2">{currentUser.full_name || 'Bénévole'}</h3>
+                  <h3 className="text-xl font-bold text-white mb-2">{currentUser.full_name || (language === 'fr' ? 'Bénévole' : language === 'es' ? 'Voluntario' : 'Volunteer')}</h3>
                   <p className="text-gray-400">{currentUser.email || 'Email'}</p>
                 </div>
 
                 <div className="bg-gray-700/30 rounded-xl p-4 mb-6">
-                  <p className="text-gray-400 text-sm mb-2">Code QR:</p>
+                  <p className="text-gray-400 text-sm mb-2">{language === 'fr' ? 'Code QR:' : language === 'es' ? 'Código QR:' : 'QR Code:'}</p>
                   <p className="font-mono text-white text-sm break-all">
                     {generateQRCode(currentUser.id || '1')}
                   </p>
@@ -1052,14 +1556,20 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     className="mt-3 bg-purple-500/20 text-purple-300 px-4 py-2 rounded-lg hover:bg-purple-500/30 transition-colors flex items-center gap-2 mx-auto"
                   >
                     <Copy size={16} />
-                    Copier
+                    {language === 'fr' ? 'Copier' : language === 'es' ? 'Copiar' : 'Copy'}
                   </button>
                 </div>
 
                 <div className="text-gray-400 text-sm text-left space-y-2">
-                  <p>• Présentez ce QR code à l'organisateur</p>
-                  <p>• Utilisable pour tous vos créneaux</p>
-                  <p>• Permet de valider votre présence</p>
+                  <p>• {language === 'fr' ? 'Présentez ce QR code à l\'organisateur' : 
+                         language === 'es' ? 'Presenta este código QR al organizador' : 
+                         'Present this QR code to the organizer'}</p>
+                  <p>• {language === 'fr' ? 'Utilisable pour tous vos créneaux' : 
+                         language === 'es' ? 'Utilizable para todos tus turnos' : 
+                         'Usable for all your shifts'}</p>
+                  <p>• {language === 'fr' ? 'Permet de valider votre présence' : 
+                         language === 'es' ? 'Permite validar tu presencia' : 
+                         'Allows to validate your presence'}</p>
                 </div>
               </div>
             </div>
@@ -1073,10 +1583,10 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                   <BellRing className="w-8 h-8 text-orange-400" />
-                  Centre de Notifications
+                  {txt.notificationCenter}
                   {unreadCount > 0 && (
                     <span className="bg-red-500 text-white text-sm px-2 py-1 rounded-full">
-                      {unreadCount} non lues
+                      {unreadCount} {txt.unread}
                     </span>
                   )}
                 </h2>
@@ -1086,7 +1596,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                       onClick={markAllRead}
                       className="text-orange-400 hover:text-orange-300 text-sm font-semibold"
                     >
-                      Tout marquer lu
+                      {txt.markAllRead}
                     </button>
                   )}
                   <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
@@ -1099,7 +1609,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 {notifications.length === 0 ? (
                   <div className="text-center py-8">
                     <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-400">Aucune notification pour le moment</p>
+                    <p className="text-gray-400">{txt.noNotifications}</p>
                   </div>
                 ) : (
                   notifications.map(notification => (
@@ -1156,7 +1666,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               </div>
 
               <div className="mt-8 border-t border-gray-600/30 pt-6">
-                <h4 className="text-white font-semibold mb-4">Raccourcis utiles</h4>
+                <h4 className="text-white font-semibold mb-4">{txt.usefulShortcuts}</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => {
@@ -1166,11 +1676,11 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     className="bg-purple-500/20 text-purple-300 p-3 rounded-xl hover:bg-purple-500/30 transition-colors flex items-center gap-2"
                   >
                     <QrCode size={16} />
-                    Mon QR Code
+                    {txt.myQRCode}
                   </button>
                   <button className="bg-blue-500/20 text-blue-300 p-3 rounded-xl hover:bg-blue-500/30 transition-colors flex items-center gap-2">
                     <Calendar size={16} />
-                    Planning
+                    {txt.planning}
                   </button>
                 </div>
               </div>
@@ -1178,14 +1688,14 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           </div>
         )}
 
-        {/* 🆕 Modal d'édition de créneau */}
+        {/* Modal d'édition de créneau */}
         {showEditShift && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                   <Edit size={24} className="text-blue-400" />
-                  Modifier le Créneau
+                  {txt.modifyShift}
                 </h2>
                 <button onClick={cancelEditShift} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
                   <X size={24} />
@@ -1194,7 +1704,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Titre</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{txt.title}</label>
                   <input
                     type="text"
                     value={editShiftData.title}
@@ -1204,7 +1714,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Description</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{txt.description}</label>
                   <textarea
                     value={editShiftData.description}
                     onChange={(e) => setEditShiftData({...editShiftData, description: e.target.value})}
@@ -1214,7 +1724,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Date</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.date}</label>
                     <input
                       type="date"
                       value={editShiftData.shift_date}
@@ -1223,7 +1733,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Max bénévoles</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{language === 'fr' ? 'Max bénévoles' : language === 'es' ? 'Máx. voluntarios' : 'Max volunteers'}</label>
                     <input
                       type="number"
                       min="1"
@@ -1236,7 +1746,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Heure début</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.startTime}</label>
                     <input
                       type="time"
                       value={editShiftData.start_time}
@@ -1245,7 +1755,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-300 mb-2">Heure fin</label>
+                    <label className="block text-sm font-bold text-gray-300 mb-2">{txt.endTime}</label>
                     <input
                       type="time"
                       value={editShiftData.end_time}
@@ -1256,19 +1766,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-gray-300 mb-2">Type de rôle</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-2">{txt.roleType}</label>
                   <select
                     value={editShiftData.role_type}
                     onChange={(e) => setEditShiftData({...editShiftData, role_type: e.target.value})}
                     className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   >
-                    <option value="">Sélectionner un type</option>
-                    <option value="registration_desk">Accueil</option>
-                    <option value="tech_support">Support technique</option>
-                    <option value="security">Sécurité</option>
-                    <option value="artist_pickup">Transport artistes</option>
-                    <option value="merchandise">Merchandising</option>
-                    <option value="general">Général</option>
+                    <option value="">{language === 'fr' ? 'Sélectionner un type' : language === 'es' ? 'Seleccionar un tipo' : 'Select a type'}</option>
+                    <option value="registration_desk">{txt.roleRegistration}</option>
+                    <option value="tech_support">{txt.roleTechSupport}</option>
+                    <option value="security">{txt.roleSecurity}</option>
+                    <option value="artist_pickup">{txt.roleArtistPickup}</option>
+                    <option value="merchandise">{txt.roleMerchandise}</option>
+                    <option value="general">{txt.roleGeneral}</option>
                   </select>
                 </div>
 
@@ -1279,19 +1789,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     onChange={(e) => setEditShiftData({...editShiftData, check_in_required: e.target.checked})}
                     className="w-5 h-5 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
                   />
-                  <label className="text-gray-300 font-medium">Check-in requis</label>
+                  <label className="text-gray-300 font-medium">{txt.checkInRequired}</label>
                 </div>
 
                 {/* Informations supplémentaires */}
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                  <h4 className="text-blue-300 font-semibold mb-2">📊 Informations actuelles</h4>
+                  <h4 className="text-blue-300 font-semibold mb-2">{txt.currentInfo}</h4>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-400">Inscrits actuellement:</span>
+                      <span className="text-gray-400">{txt.currentlyRegistered}</span>
                       <span className="text-white font-bold ml-2">{showEditShift.current_volunteers}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400">Statut:</span>
+                      <span className="text-gray-400">{txt.status}</span>
                       <span className="text-white font-bold ml-2 capitalize">{showEditShift.status}</span>
                     </div>
                   </div>
@@ -1302,13 +1812,13 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     onClick={cancelEditShift}
                     className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors"
                   >
-                    Annuler
+                    {txt.cancel}
                   </button>
                   <button
                     onClick={saveEditShift}
                     className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
                   >
-                    Sauvegarder les Modifications
+                    {txt.saveChanges}
                   </button>
                 </div>
               </div>

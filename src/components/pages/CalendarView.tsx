@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, Clock, Users, Plus, Edit, ChevronLeft, ChevronRight, UserPlus, X, Check, AlertCircle } from 'lucide-react';
+import { volunteerService } from '../../services/volunteerService';
 
 interface VolunteerShift {
   id: string;
@@ -42,7 +43,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   currentUser,
   volunteerShifts,
   setVolunteerShifts,
-  volunteerSignups = [], // Valeur par défaut
+  volunteerSignups = [],
   setVolunteerSignups,
   onSignUp,
   onCreateShift
@@ -54,6 +55,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedSlot, setSelectedSlot] = useState<{day: number, hour: number, date: string} | null>(null);
   const [showShiftDetails, setShowShiftDetails] = useState<VolunteerShift | null>(null);
   const [showEditShift, setShowEditShift] = useState<VolunteerShift | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [editShiftData, setEditShiftData] = useState({
     title: '',
     description: '',
@@ -111,37 +114,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Obtenir les créneaux pour une date et heure spécifiques
   const getShiftsForSlot = (date: Date, hour: number) => {
-    // Utiliser la date locale au lieu d'UTC pour éviter le décalage
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
     
-    const now = new Date();
-    const nowYear = now.getFullYear();
-    const nowMonth = (now.getMonth() + 1).toString().padStart(2, '0');
-    const nowDay = now.getDate().toString().padStart(2, '0');
+    const nowParis = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+    const nowYear = nowParis.getFullYear();
+    const nowMonth = (nowParis.getMonth() + 1).toString().padStart(2, '0');
+    const nowDay = nowParis.getDate().toString().padStart(2, '0');
     const currentDateStr = `${nowYear}-${nowMonth}-${nowDay}`;
-    const currentHour = now.getHours();
+    const currentHour = nowParis.getHours();
     
     return volunteerShifts.filter(shift => {
       if (shift.shift_date !== dateStr) return false;
       
-      // Filtrer les brouillons pour les bénévoles
       if (currentUser?.role === 'volunteer' && shift.status === 'draft') return false;
       
-      // Filtrer les événements passés pour les bénévoles (ils ne peuvent pas s'inscrire)
       if (currentUser?.role === 'volunteer') {
         const shiftDate = new Date(shift.shift_date);
         const shiftEndHour = parseInt(shift.end_time.split(':')[0]);
         const shiftEndMinute = parseInt(shift.end_time.split(':')[1]);
         
-        // Si c'est une date passée
         if (date < new Date(currentDateStr)) return false;
         
-        // Si c'est aujourd'hui mais l'heure est passée
         if (shift.shift_date === currentDateStr) {
-          const currentTime = currentHour * 60 + now.getMinutes();
+          const currentTime = currentHour * 60 + nowParis.getMinutes();
           const shiftEndTime = shiftEndHour * 60 + shiftEndMinute;
           if (currentTime > shiftEndTime) return false;
         }
@@ -169,7 +167,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const startHour = parseInt(shift.start_time.split(':')[0]);
     const startMinute = parseInt(shift.start_time.split(':')[1]);
     
-    // Position relative à l'heure de début du slot (pas 6h)
     return (startMinute * 64) / 60; // 64px par heure, proportionnel aux minutes
   };
 
@@ -197,7 +194,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const getShiftColor = (shift: VolunteerShift) => {
     const fillRate = shift.current_volunteers / shift.max_volunteers;
     
-    // PRIORITÉ: Vérifier si l'utilisateur actuel est inscrit à ce créneau
     const isUserSignedUp = currentUser?.role === 'volunteer' && 
                           currentUser?.id && 
                           volunteerSignups && 
@@ -211,7 +207,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (shift.status === 'cancelled') return 'bg-gray-500/20 border-gray-500/40 text-gray-400';
     if (shift.status === 'draft') return 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300';
     
-    // PRIORITÉ: Si l'utilisateur est inscrit, toujours afficher en bleu, même si complet
     if (isUserSignedUp) {
       return 'bg-gradient-to-r from-blue-500 to-indigo-600 border-2 border-blue-300 text-white shadow-xl shadow-blue-500/40 ring-4 ring-blue-400/30';
     }
@@ -228,7 +223,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const handleDragStart = (e: React.DragEvent, shift: VolunteerShift) => {
     if (currentUser?.role !== 'organizer' && currentUser?.role !== 'admin') return;
     setDraggedShift(shift);
-    setDraggedOverSlot(null); // Reset du slot survolé
+    setDraggedOverSlot(null);
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -240,45 +235,44 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const handleDragEnd = () => {
-    // Nettoyer tous les états drag & drop
     setDraggedShift(null);
     setDraggedOverSlot(null);
   };
 
-  const handleDrop = (e: React.DragEvent, dayIndex: number, hour: number) => {
+  // 🆕 DRAG & DROP avec Supabase
+  const handleDrop = async (e: React.DragEvent, dayIndex: number, hour: number) => {
     e.preventDefault();
     if (!draggedShift) return;
 
     const newDate = weekDates[dayIndex];
-    // Utiliser la date locale au lieu d'UTC
     const year = newDate.getFullYear();
     const month = (newDate.getMonth() + 1).toString().padStart(2, '0');
     const dayStr = newDate.getDate().toString().padStart(2, '0');
     const newDateStr = `${year}-${month}-${dayStr}`;
     
-    const now = new Date();
-    const nowYear = now.getFullYear();
-    const nowMonth = (now.getMonth() + 1).toString().padStart(2, '0');
-    const nowDay = now.getDate().toString().padStart(2, '0');
+    const nowParis = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+    const nowYear = nowParis.getFullYear();
+    const nowMonth = (nowParis.getMonth() + 1).toString().padStart(2, '0');
+    const nowDay = nowParis.getDate().toString().padStart(2, '0');
     const currentDateStr = `${nowYear}-${nowMonth}-${nowDay}`;
     
-    // Empêcher le déplacement vers le passé
-    if (newDate < new Date()) {
+    const newDateParis = new Date(newDate.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+    const todayParis = new Date(nowParis.toDateString());
+    
+    if (newDateParis < todayParis) {
       alert('Impossible de déplacer un créneau vers une date passée');
       setDraggedShift(null);
       setDraggedOverSlot(null);
       return;
     }
     
-    // Si c'est aujourd'hui, vérifier l'heure
-    if (newDateStr === currentDateStr && hour < now.getHours()) {
+    if (newDateStr === currentDateStr && hour < nowParis.getHours()) {
       alert('Impossible de déplacer un créneau vers une heure passée');
       setDraggedShift(null);
       setDraggedOverSlot(null);
       return;
     }
     
-    // Calculer la durée exacte du créneau original
     const startHour = parseInt(draggedShift.start_time.split(':')[0]);
     const startMinute = parseInt(draggedShift.start_time.split(':')[1]);
     const endHour = parseInt(draggedShift.end_time.split(':')[0]);
@@ -287,23 +281,43 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const durationHours = endHour - startHour;
     const durationMinutes = endMinute - startMinute;
     
-    // Nouvelle heure de fin
     const newEndHour = hour + durationHours;
     const newEndMinute = durationMinutes;
 
-    // Mettre à jour le créneau
-    setVolunteerShifts(shifts =>
-      shifts.map(shift =>
-        shift.id === draggedShift.id
-          ? {
-              ...shift,
-              shift_date: newDateStr,
-              start_time: `${hour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
-              end_time: `${newEndHour.toString().padStart(2, '0')}:${newEndMinute.toString().padStart(2, '0')}`
-            }
-          : shift
-      )
-    );
+    const updates = {
+      shift_date: newDateStr,
+      start_time: `${hour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}`,
+      end_time: `${newEndHour.toString().padStart(2, '0')}:${newEndMinute.toString().padStart(2, '0')}`
+    };
+
+    try {
+      console.log('🔄 Déplacement shift:', draggedShift.id, updates);
+      
+      const { error } = await volunteerService.updateShift(draggedShift.id, updates);
+      
+      if (error) {
+        console.error('❌ Erreur déplacement:', error);
+        alert(`Erreur lors du déplacement: ${error.message}`);
+        setDraggedShift(null);
+        setDraggedOverSlot(null);
+        return;
+      }
+
+      console.log('✅ Shift déplacé avec succès');
+
+      // Mettre à jour l'état local
+      setVolunteerShifts(shifts =>
+        shifts.map(shift =>
+          shift.id === draggedShift.id
+            ? { ...shift, ...updates }
+            : shift
+        )
+      );
+
+    } catch (error) {
+      console.error('❌ Erreur catch déplacement:', error);
+      alert(`Erreur: ${error.message}`);
+    }
 
     setDraggedShift(null);
     setDraggedOverSlot(null);
@@ -314,7 +328,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const date = weekDates[dayIndex];
     const existingShifts = getShiftsForSlot(date, hour);
     
-    // Pour les bénévoles - toujours ouvrir le modal de détails
     if (currentUser?.role === 'volunteer' && currentUser?.id) {
       if (existingShifts.length > 0) {
         const shift = existingShifts[0];
@@ -325,34 +338,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return;
     }
     
-    // Pour les organisateurs
     if (currentUser?.role !== 'organizer' && currentUser?.role !== 'admin') return;
     
-    // Utiliser la date locale au lieu d'UTC
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const dayStr = date.getDate().toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${dayStr}`;
     
-    const now = new Date();
-    const nowYear = now.getFullYear();
-    const nowMonth = (now.getMonth() + 1).toString().padStart(2, '0');
-    const nowDay = now.getDate().toString().padStart(2, '0');
+    const nowParis = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+    const nowYear = nowParis.getFullYear();
+    const nowMonth = (nowParis.getMonth() + 1).toString().padStart(2, '0');
+    const nowDay = nowParis.getDate().toString().padStart(2, '0');
     const currentDateStr = `${nowYear}-${nowMonth}-${nowDay}`;
     
-    // Empêcher la création d'événements passés
-    if (date < new Date()) {
+    const selectedDateParis = new Date(date.toLocaleString("en-US", {timeZone: "Europe/Paris"}));
+    const todayParis = new Date(nowParis.toDateString());
+    
+    if (selectedDateParis < todayParis) {
       alert('Impossible de créer un créneau dans le passé');
       return;
     }
     
-    // Si c'est aujourd'hui, vérifier l'heure
-    if (dateStr === currentDateStr && hour < now.getHours()) {
+    if (dateStr === currentDateStr && hour < nowParis.getHours()) {
       alert('Impossible de créer un créneau à une heure passée');
       return;
     }
     
-    // Vérifier s'il y a déjà un créneau
     if (existingShifts.length > 0) {
       setShowShiftDetails(existingShifts[0]);
       return;
@@ -362,24 +373,71 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setShowCreateModal(true);
   };
 
-  const createQuickShift = () => {
-    if (!selectedSlot) return;
+  // 🆕 CRÉATION avec Supabase
+  const createQuickShift = async () => {
+    if (!selectedSlot || isCreating) return;
 
-    const newShift: Partial<VolunteerShift> = {
-      title: quickCreateData.title || `Créneau ${selectedSlot.hour}h`,
-      description: '',
-      shift_date: selectedSlot.date,
-      start_time: `${selectedSlot.hour.toString().padStart(2, '0')}:00`,
-      end_time: `${(selectedSlot.hour + quickCreateData.duration).toString().padStart(2, '0')}:00`,
-      max_volunteers: quickCreateData.max_volunteers,
-      role_type: 'general',
-      check_in_required: true
-    };
+    setIsCreating(true);
+    try {
+      console.log('🚀 Création rapide shift calendrier:', selectedSlot);
 
-    onCreateShift(newShift);
-    setShowCreateModal(false);
-    setQuickCreateData({ title: '', max_volunteers: 1, duration: 2 });
-    setSelectedSlot(null);
+      const shiftData = {
+        event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
+        title: quickCreateData.title || `Créneau ${selectedSlot.hour}h`,
+        description: '',
+        shift_date: selectedSlot.date,
+        start_time: `${selectedSlot.hour.toString().padStart(2, '0')}:00`,
+        end_time: `${(selectedSlot.hour + quickCreateData.duration).toString().padStart(2, '0')}:00`,
+        max_volunteers: quickCreateData.max_volunteers,
+        current_volunteers: 0,
+        role_type: 'general',
+        difficulty_level: 'beginner',
+        status: 'draft',
+        check_in_required: true,
+        qr_code_enabled: true,
+        created_by: currentUser?.id || ''
+      };
+
+      const { data, error } = await volunteerService.createShift(shiftData);
+
+      if (error) {
+        console.error('❌ Erreur création shift calendrier:', error);
+        alert(`Erreur lors de la création: ${error.message}`);
+        return;
+      }
+
+      console.log('✅ Shift créé avec succès:', data);
+
+      const localShift = {
+        id: data.id,
+        title: data.title,
+        description: data.description || '',
+        shift_date: data.shift_date,
+        start_time: data.start_time,
+        end_time: data.end_time,
+        max_volunteers: data.max_volunteers,
+        current_volunteers: data.current_volunteers || 0,
+        role_type: data.role_type,
+        status: data.status,
+        check_in_required: data.check_in_required || false
+      };
+
+      // Mettre à jour l'état local directement
+      setVolunteerShifts(prev => [...prev, localShift]);
+      
+      // Fermer le modal
+      setShowCreateModal(false);
+      setQuickCreateData({ title: '', max_volunteers: 1, duration: 2 });
+      setSelectedSlot(null);
+
+      alert('✅ Créneau créé avec succès !');
+
+    } catch (error) {
+      console.error('❌ Erreur catch:', error);
+      alert(`Erreur: ${error.message}`);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleEditShift = (shift: VolunteerShift) => {
@@ -397,30 +455,78 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setShowShiftDetails(null);
   };
 
-  const saveEditShift = () => {
-    if (!showEditShift) return;
+  // 🆕 ÉDITION avec Supabase
+  const saveEditShift = async () => {
+    if (!showEditShift || isUpdating) return;
 
-    const updatedShift = { ...showEditShift, ...editShiftData };
-    
-    setVolunteerShifts(shifts =>
-      shifts.map(shift =>
-        shift.id === showEditShift.id 
-          ? updatedShift
-          : shift
-      )
-    );
+    setIsUpdating(true);
+    try {
+      console.log('🔄 Mise à jour shift calendrier:', showEditShift.id, editShiftData);
 
-    setShowEditShift(null);
-    setEditShiftData({
-      title: '',
-      description: '',
-      shift_date: '',
-      start_time: '',
-      end_time: '',
-      max_volunteers: 1,
-      role_type: '',
-      check_in_required: true
-    });
+      const { data, error } = await volunteerService.updateShift(showEditShift.id, editShiftData);
+
+      if (error) {
+        console.error('❌ Erreur mise à jour calendrier:', error);
+        alert(`Erreur lors de la mise à jour: ${error.message}`);
+        return;
+      }
+
+      console.log('✅ Shift mis à jour:', data);
+
+      const updatedShift = { ...showEditShift, ...editShiftData };
+      
+      setVolunteerShifts(shifts =>
+        shifts.map(shift =>
+          shift.id === showEditShift.id ? updatedShift : shift
+        )
+      );
+
+      setShowEditShift(null);
+      setEditShiftData({
+        title: '',
+        description: '',
+        shift_date: '',
+        start_time: '',
+        end_time: '',
+        max_volunteers: 1,
+        role_type: '',
+        check_in_required: true
+      });
+
+      alert('✅ Modifications sauvegardées !');
+
+    } catch (error) {
+      console.error('❌ Erreur catch:', error);
+      alert(`Erreur: ${error.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // 🆕 CHANGEMENT DE STATUT avec Supabase
+  const changeShiftStatus = async (shiftId: string, newStatus: 'draft' | 'live' | 'full' | 'cancelled') => {
+    try {
+      console.log('🔄 Changement statut:', shiftId, 'vers', newStatus);
+      
+      const { error } = await volunteerService.updateShift(shiftId, { status: newStatus });
+      
+      if (error) {
+        console.error('❌ Erreur changement statut:', error);
+        alert(`Erreur: ${error.message}`);
+        return;
+      }
+      
+      console.log('✅ Statut changé avec succès');
+      
+      setVolunteerShifts(shifts =>
+        shifts.map(s =>
+          s.id === shiftId ? { ...s, status: newStatus } : s
+        )
+      );
+    } catch (error) {
+      console.error('❌ Erreur catch:', error);
+      alert(`Erreur: ${error.message}`);
+    }
   };
 
   const cancelEditShift = () => {
@@ -552,7 +658,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       {/* Créneaux dans ce slot */}
                       {shiftsInSlot.map(shift => {
                         const isMainSlot = parseInt(shift.start_time.split(':')[0]) === hour;
-                        if (!isMainSlot) return null; // Afficher seulement dans le slot de début
+                        if (!isMainSlot) return null;
                         
                         return (
                           <div
@@ -581,7 +687,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               <span>{shift.start_time}-{shift.end_time}</span>
                             </div>
                             
-                            {/* Indicateur si bénévole inscrit - Plus visible */}
+                            {/* Indicateur si bénévole inscrit */}
                             {currentUser?.role === 'volunteer' && 
                              currentUser?.id && 
                              volunteerSignups && 
@@ -601,15 +707,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                             {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
                               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation();
-                                    setVolunteerShifts(shifts =>
-                                      shifts.map(s =>
-                                        s.id === shift.id 
-                                          ? { ...s, status: s.status === 'draft' ? 'live' : 'draft' }
-                                          : s
-                                      )
-                                    );
+                                    const newStatus = shift.status === 'draft' ? 'live' : 'draft';
+                                    await changeShiftStatus(shift.id, newStatus);
                                   }}
                                   className={`w-5 h-5 rounded text-xs font-bold ${
                                     shift.status === 'draft' 
@@ -704,9 +805,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </button>
                 <button
                   onClick={createQuickShift}
-                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+                  disabled={isCreating}
+                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors ${
+                    isCreating 
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                      : 'bg-green-500 text-white hover:bg-green-600'
+                  }`}
                 >
-                  Créer
+                  {isCreating ? '🔄 Création...' : 'Créer'}
                 </button>
               </div>
             </div>
@@ -763,7 +869,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                  showShiftDetails.status === 'live' && (
                   <div className="flex gap-3 w-full">
                     {(() => {
-                      // Vérifier si l'utilisateur est inscrit
                       const isUserSignedUp = currentUser?.id && 
                                             volunteerSignups && 
                                             Array.isArray(volunteerSignups) &&
@@ -774,7 +879,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                             );
 
                       if (isUserSignedUp) {
-                        // ✅ Si inscrit → Bouton "Se désinscrire" (toujours, même si complet)
                         return (
                           <button
                             onClick={() => {
@@ -811,7 +915,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           </button>
                         );
                       } else if (canSignUpForShift(showShiftDetails)) {
-                        // ✅ Si pas inscrit + places libres → Bouton "S'inscrire"
                         return (
                           <button
                             onClick={() => {
@@ -825,7 +928,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           </button>
                         );
                       } else {
-                        // ✅ Si pas inscrit + complet → Rien (mais on peut afficher un message)
                         return (
                           <div className="flex-1 bg-gray-600/30 text-gray-400 px-4 py-2 rounded-lg font-semibold text-center border border-gray-500/30">
                             Créneau complet
@@ -840,15 +942,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
                   <>
                     <button 
-                      onClick={() => {
+                      onClick={async () => {
                         const newStatus = showShiftDetails.status === 'draft' ? 'live' : 'draft';
-                        setVolunteerShifts(shifts =>
-                          shifts.map(s =>
-                            s.id === showShiftDetails.id 
-                              ? { ...s, status: newStatus }
-                              : s
-                          )
-                        );
+                        await changeShiftStatus(showShiftDetails.id, newStatus);
                         setShowShiftDetails({...showShiftDetails, status: newStatus});
                       }}
                       className={`flex-1 px-4 py-2 rounded-lg transition-colors font-semibold flex items-center justify-center gap-2 ${
@@ -980,9 +1076,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 </button>
                 <button
                   onClick={saveEditShift}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                  disabled={isUpdating}
+                  className={`flex-1 px-4 py-2 rounded-lg font-semibold transition-colors ${
+                    isUpdating 
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
                 >
-                  Sauvegarder
+                  {isUpdating ? '🔄 Sauvegarde...' : 'Sauvegarder'}
                 </button>
               </div>
             </div>

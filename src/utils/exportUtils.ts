@@ -1,599 +1,599 @@
-import * as XLSX from 'xlsx';
+// exportUtils.ts - Multi-format export utilities (CSV, PDF, XLSX)
 
-// Types pour les données d'export
-interface ExportVolunteerData {
-  shift_title: string;
+// Types
+interface VolunteerShift {
+  id: string;
+  title: string;
+  description: string;
   shift_date: string;
   start_time: string;
   end_time: string;
   max_volunteers: number;
   current_volunteers: number;
-  status: string;
-  description: string;
-  volunteers: {
-    name: string;
-    email: string;
-    phone?: string;
-    status: string;
-    remaining_hours: number;
-    signed_up_date: string;
-  }[];
+  role_type: string;
+  status: 'unpublished' | 'live' | 'full' | 'cancelled';
+  check_in_required: boolean;
+  organizer_in_charge?: string;
 }
 
-interface ExportTeamData {
+interface VolunteerSignup {
+  id: string;
+  shift_id: string;
+  volunteer_id: string;
+  status: 'signed_up' | 'confirmed' | 'checked_in' | 'no_show' | 'cancelled';
+  signed_up_at: string;
+  reminder_sent: boolean;
+  checked_in_at?: string;
+  qr_code?: string;
+}
+
+interface PerformanceTeam {
+  id: string;
   team_name: string;
   director_name: string;
   director_email: string;
   studio_name: string;
   city: string;
+  state?: string;
   country: string;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  performance_video_url?: string;
+  song_title?: string;
   group_size: number;
   dance_styles: string[];
-  song_title: string;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
-  video_url?: string;
+  level?: string;
   performance_order?: number;
+  scoring?: {
+    group_size_score: number;
+    wow_factor_score: number;
+    technical_score: number;
+    style_variety_bonus: number;
+    total_score: number;
+  };
   organizer_notes?: string;
+  can_edit_until: string;
+  backup_team?: boolean;
+  created_by?: string;
 }
 
-// Fonctions utilitaires
-const getStatusLabel = (status: string): string => {
-  const labels: Record<string, string> = {
-    'draft': 'Brouillon',
-    'live': 'Publié', 
-    'full': 'Complet',
-    'cancelled': 'Annulé'
-  };
-  return labels[status] || status;
-};
+interface Volunteer {
+  id: string;
+  full_name: string;
+  phone?: string;
+  email: string;
+}
 
-const getTeamStatusLabel = (status: string): string => {
-  const labels: Record<string, string> = {
-    'draft': 'Brouillon',
-    'submitted': 'Soumise',
-    'approved': 'Approuvée',
-    'rejected': 'Rejetée'
-  };
-  return labels[status] || status;
-};
+export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
-const calculateRemainingHours = (volunteerId: string, volunteerSignups: any[], volunteerShifts: any[]): number => {
-  const requiredHours = 8;
-  const userSignups = volunteerSignups.filter(signup => 
-    signup.volunteer_id === volunteerId && signup.status !== 'cancelled'
+// ================================
+// BASE UTILITIES
+// ================================
+
+/**
+ * Converts array of objects to CSV
+ */
+const arrayToCSV = (data: any[], headers?: string[]): string => {
+  if (!data || data.length === 0) return '';
+
+  const keys = headers || Object.keys(data[0]);
+  const csvHeaders = keys.join(',');
+  
+  const csvRows = data.map(row => 
+    keys.map(key => {
+      const value = row[key];
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    }).join(',')
   );
-  
-  const completedHours = userSignups.reduce((total, signup) => {
-    const shift = volunteerShifts.find(s => s.id === signup.shift_id);
-    if (shift) {
-      const start = new Date(`2000-01-01T${shift.start_time}`);
-      const end = new Date(`2000-01-01T${shift.end_time}`);
-      const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      return total + hours;
-    }
-    return total;
-  }, 0);
-  
-  return Math.max(0, requiredHours - completedHours);
+
+  return [csvHeaders, ...csvRows].join('\n');
 };
-// Export spécifique pour la vue grille
-export const exportGridToExcel = (
-  volunteerShifts: any[],
-  volunteerSignups: any[],
-  volunteers: any[] = [],
-  selectedWeek: Date = new Date() // 🆕 PARAMÈTRE OPTIONNEL
-) => {
-  const workbook = XLSX.utils.book_new();
+
+/**
+ * Downloads a file
+ */
+const downloadFile = (content: string | Blob, filename: string, mimeType: string): void => {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+/**
+ * Generates basic Excel file (XML)
+ */
+const generateXLSX = (data: any[], sheetName: string): Blob => {
+  if (!data || data.length === 0) {
+    throw new Error('No data to export');
+  }
+
+  const headers = Object.keys(data[0]);
   
-  // 1. CRÉER LA GRILLE HEBDOMADAIRE
-  const getWeekDates = (date: Date = new Date()) => {
-    const week = [];
-    const startOfWeek = new Date(date);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-    startOfWeek.setDate(diff);
-    
-    for (let i = 0; i < 7; i++) {
-      const currentDate = new Date(startOfWeek);
-      currentDate.setDate(startOfWeek.getDate() + i);
-      week.push(currentDate);
-    }
-    return week;
-  };
+  const xmlContent = `<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Worksheet ss:Name="${sheetName}">
+  <Table>
+   <Row>
+    ${headers.map(header => `<Cell><Data ss:Type="String">${header}</Data></Cell>`).join('')}
+   </Row>
+   ${data.map(row => `<Row>
+    ${headers.map(header => {
+      const value = row[header];
+      const cellValue = value === null || value === undefined ? '' : String(value);
+      const dataType = typeof value === 'number' ? 'Number' : 'String';
+      return `<Cell><Data ss:Type="${dataType}">${cellValue.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>`;
+    }).join('')}
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+</Workbook>`;
 
-  const weekDates = getWeekDates(selectedWeek); // 🆕 UTILISER selectedWeek
-  const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  return new Blob([xmlContent], { type: 'application/vnd.ms-excel' });
+};
 
-  // Filtrer les créneaux pour la semaine sélectionnée uniquement
-  const weekStartStr = weekDates[0].toISOString().split('T')[0];
-  const weekEndStr = weekDates[6].toISOString().split('T')[0];
+/**
+ * Generates basic PDF (HTML to PDF simulation)
+ */
+const generatePDF = (data: any[], title: string): Blob => {
+  if (!data || data.length === 0) {
+    throw new Error('No data to export');
+  }
+
+  const headers = Object.keys(data[0]);
   
-  const weekShifts = volunteerShifts.filter(shift => {
-    return shift.shift_date >= weekStartStr && shift.shift_date <= weekEndStr;
-  });
-
-  // Grouper par type de rôle et horaires (UNIQUEMENT pour cette semaine)
-  const timeBlocks = new Map();
-  weekShifts.forEach(shift => {
-    const key = `${shift.role_type}_${shift.start_time}-${shift.end_time}`;
-    if (!timeBlocks.has(key)) {
-      timeBlocks.set(key, {
-        role_type: shift.role_type,
-        time_range: `${shift.start_time}-${shift.end_time}`,
-        title: shift.title,
-        shifts_by_date: new Map()
-      });
-    }
-    timeBlocks.get(key).shifts_by_date.set(shift.shift_date, shift);
-  });
-
-  // 2. DONNÉES DE LA GRILLE
-  const gridData = [
-    ['📊 GRILLE PLANNING BÉNÉVOLES - BOSTON SALSA FESTIVAL 2025'],
-    ['Période:', `${weekDates[0].toLocaleDateString('fr-FR')} - ${weekDates[6].toLocaleDateString('fr-FR')}`],
-    ['Généré le:', new Date().toLocaleDateString('fr-FR')],
-    [''],
-    // Header avec les jours
-    ['Créneaux / Jours', ...daysOfWeek]
-  ];
-
-  // Ajouter chaque bloc de temps
-  Array.from(timeBlocks.values()).forEach(block => {
-    const row = [
-      `${block.time_range}\n${block.title}\n(${block.role_type.replace('_', ' ')})`
-    ];
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>${title}</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            font-size: 12px;
+        }
+        h1 { 
+            color: #333; 
+            border-bottom: 2px solid #e74c3c; 
+            padding-bottom: 10px;
+        }
+        .meta {
+            color: #666;
+            font-size: 10px;
+            margin-bottom: 20px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left;
+            font-size: 11px;
+        }
+        th { 
+            background-color: #f8f9fa; 
+            font-weight: bold;
+        }
+        tr:nth-child(even) { 
+            background-color: #f9f9f9; 
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 10px;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>${title}</h1>
+    <div class="meta">
+        Generated on ${new Date().toLocaleDateString('en-US')} at ${new Date().toLocaleTimeString('en-US')} | 
+        Total: ${data.length} record(s)
+    </div>
     
-    // Pour chaque jour de la semaine
-    weekDates.forEach(date => {
-      const dateStr = date.toISOString().split('T')[0];
-      const shift = block.shifts_by_date.get(dateStr);
+    <table>
+        <thead>
+            <tr>
+                ${headers.map(header => `<th>${header}</th>`).join('')}
+            </tr>
+        </thead>
+        <tbody>
+            ${data.map(row => `
+                <tr>
+                    ${headers.map(header => {
+                      const value = row[header];
+                      const cellValue = value === null || value === undefined ? '' : String(value);
+                      return `<td>${cellValue.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</td>`;
+                    }).join('')}
+                </tr>
+            `).join('')}
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        Document generated by Sabor Dance Platform | www.sabordance.com
+    </div>
+</body>
+</html>`;
+
+  return new Blob([htmlContent], { type: 'text/html' });
+};
+
+// ================================
+// SPECIALIZED EXPORT FUNCTIONS
+// ================================
+
+/**
+ * Export volunteer shifts
+ */
+export const exportVolunteerShifts = (
+  shifts: VolunteerShift[], 
+  signups: VolunteerSignup[] = [], 
+  volunteers: Volunteer[] = [],
+  format: ExportFormat = 'csv'
+): void => {
+  const enrichedShifts = shifts.map(shift => ({
+    'ID': shift.id,
+    'Title': shift.title,
+    'Description': shift.description,
+    'Date': new Date(shift.shift_date).toLocaleDateString('en-US'),
+    'Start Time': shift.start_time,
+    'End Time': shift.end_time,
+    'Duration (h)': calculateHours(shift.start_time, shift.end_time),
+    'Max Spots': shift.max_volunteers,
+    'Filled Spots': shift.current_volunteers,
+    'Available Spots': shift.max_volunteers - shift.current_volunteers,
+    'Role Type': shift.role_type,
+    'Status': getStatusLabel(shift.status),
+    'Check-in Required': shift.check_in_required ? 'Yes' : 'No',
+    'Organizer in Charge': shift.organizer_in_charge || 'Not Assigned',
+    'Fill Rate (%)': Math.round((shift.current_volunteers / shift.max_volunteers) * 100),
+    'Urgent': (shift.current_volunteers / shift.max_volunteers) < 0.5 ? 'Yes' : 'No'
+  }));
+
+  const baseFilename = `volunteer_shifts_${new Date().toISOString().split('T')[0]}`;
+  
+  switch (format) {
+    case 'csv':
+      const csv = arrayToCSV(enrichedShifts);
+      downloadFile(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+      break;
       
-      if (shift) {
-        const fillRate = shift.current_volunteers / shift.max_volunteers;
-        const ratio = `${shift.current_volunteers}/${shift.max_volunteers}`;
-        const status = fillRate === 0 ? '🔴' : fillRate < 0.8 ? '🟡' : '🟢';
-        row.push(`${status} ${ratio}`);
-      } else {
-        row.push('-');
-      }
-    });
-    
-    gridData.push(row);
-  });
-
-  // Ajouter la légende
-  gridData.push(['']);
-  gridData.push(['LÉGENDE:']);
-  gridData.push(['🔴 = Vide (0-30%)', '🟡 = Partiel (31-80%)', '🟢 = Complet (81-100%)']);
-
-  const gridSheet = XLSX.utils.aoa_to_sheet(gridData);
-  XLSX.utils.book_append_sheet(workbook, gridSheet, 'Grille Hebdomadaire');
-
-  // 3. FEUILLE DÉTAILS PAR CRÉNEAU (UNIQUEMENT SEMAINE SÉLECTIONNÉE)
-  const detailsData = [
-    ['DÉTAILS PAR CRÉNEAU - SEMAINE SÉLECTIONNÉE'],
-    [''],
-    ['Créneau', 'Date', 'Horaire', 'Rôle', 'Inscrits/Max', 'Statut', 'Bénévoles Inscrits', 'Emails']
-  ];
-
-  weekShifts.forEach(shift => {
-    const shiftSignups = volunteerSignups.filter(signup => 
-      signup.shift_id === shift.id && signup.status !== 'cancelled'
-    );
-    
-    const volunteerNames = shiftSignups.map(signup => {
-      const volunteer = volunteers.find(v => v.id === signup.volunteer_id);
-      return volunteer?.full_name || `ID: ${signup.volunteer_id}`;
-    }).join(', ') || 'Aucun';
-    
-    const volunteerEmails = shiftSignups.map(signup => {
-      const volunteer = volunteers.find(v => v.id === signup.volunteer_id);
-      return volunteer?.email || '';
-    }).join(', ');
-
-    const fillRate = shift.current_volunteers / shift.max_volunteers;
-    const statusText = fillRate === 0 ? 'VIDE 🔴' : fillRate < 0.8 ? 'PARTIEL 🟡' : 'COMPLET 🟢';
-
-    detailsData.push([
-      shift.title,
-      new Date(shift.shift_date).toLocaleDateString('fr-FR'),
-      `${shift.start_time} - ${shift.end_time}`,
-      shift.role_type.replace('_', ' '),
-      `${shift.current_volunteers}/${shift.max_volunteers}`,
-      statusText,
-      volunteerNames,
-      volunteerEmails
-    ]);
-  });
-
-  const detailsSheet = XLSX.utils.aoa_to_sheet(detailsData);
-  XLSX.utils.book_append_sheet(workbook, detailsSheet, 'Détails Créneaux');
-
-  // 4. FEUILLE ACTIONS URGENTES (UNIQUEMENT SEMAINE SÉLECTIONNÉE)
-  const urgentData = [
-    ['🚨 ACTIONS URGENTES REQUISES - SEMAINE SÉLECTIONNÉE'],
-    [''],
-    ['CRÉNEAUX VIDES (Action immédiate requise)'],
-    ['Créneau', 'Date', 'Horaire', 'Bénévoles Manquants', 'Contact Urgence']
-  ];
-
-  const emptyShifts = weekShifts.filter(shift => shift.current_volunteers === 0 && shift.status === 'live');
-  emptyShifts.forEach(shift => {
-    urgentData.push([
-      shift.title,
-      new Date(shift.shift_date).toLocaleDateString('fr-FR'),
-      `${shift.start_time} - ${shift.end_time}`,
-      `${shift.max_volunteers} bénévoles requis`,
-      'hernan@bostonsalsafest.com' // Contact organisateur
-    ]);
-  });
-
-  urgentData.push(['']);
-  urgentData.push(['CRÉNEAUX CRITIQUES (< 50% remplis)']);
-  urgentData.push(['Créneau', 'Date', 'Horaire', 'Statut', 'Action']);
-
-  const criticalShifts = weekShifts.filter(shift => {
-    const fillRate = shift.current_volunteers / shift.max_volunteers;
-    return fillRate > 0 && fillRate < 0.5 && shift.status === 'live';
-  });
-
-  criticalShifts.forEach(shift => {
-    const missing = shift.max_volunteers - shift.current_volunteers;
-    urgentData.push([
-      shift.title,
-      new Date(shift.shift_date).toLocaleDateString('fr-FR'),
-      `${shift.start_time} - ${shift.end_time}`,
-      `${shift.current_volunteers}/${shift.max_volunteers}`,
-      `Recruter ${missing} bénévoles`
-    ]);
-  });
-
-  const urgentSheet = XLSX.utils.aoa_to_sheet(urgentData);
-  XLSX.utils.book_append_sheet(workbook, urgentSheet, 'Actions Urgentes');
-
-  // Télécharger
-  const filename = `grille_planning_BSF_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(workbook, filename);
-};
-
-// Fonction principale d'export des bénévoles
-export const exportVolunteersToExcel = (
-  volunteerShifts: any[],
-  volunteerSignups: any[],
-  volunteers: any[] = []
-) => {
-  // Créer le workbook
-  const workbook = XLSX.utils.book_new();
-  
-  // 1. FEUILLE RÉSUMÉ
-  const summaryData = [
-    ['RAPPORT BÉNÉVOLES - BOSTON SALSA FESTIVAL 2025'],
-    ['Généré le:', new Date().toLocaleDateString('fr-FR')],
-    [],
-    ['STATISTIQUES GÉNÉRALES'],
-    ['Total créneaux:', volunteerShifts.length],
-    ['Créneaux publiés:', volunteerShifts.filter(s => s.status === 'live').length],
-    ['Créneaux complets:', volunteerShifts.filter(s => s.status === 'full').length],
-    ['Total inscriptions:', volunteerSignups.filter(s => s.status !== 'cancelled').length],
-    ['Total bénévoles uniques:', volunteers.length],
-    [],
-    ['CRÉNEAUX CRITIQUES (moins de 50% remplis)'],
-    ['Titre', 'Date', 'Inscrits/Max', 'Pourcentage']
-  ];
-  
-  // Ajouter les créneaux critiques
-  const criticalShifts = volunteerShifts.filter(shift => 
-    (shift.current_volunteers / shift.max_volunteers) < 0.5 && shift.status === 'live'
-  );
-  
-  criticalShifts.forEach(shift => {
-    summaryData.push([
-      shift.title,
-      new Date(shift.shift_date).toLocaleDateString('fr-FR'),
-      `${shift.current_volunteers}/${shift.max_volunteers}`,
-      `${Math.round((shift.current_volunteers / shift.max_volunteers) * 100)}%`
-    ]);
-  });
-  
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Résumé');
-  
-  // 2. FEUILLE DÉTAIL DES CRÉNEAUX
-  const detailHeaders = [
-    'Titre Créneau',
-    'Date',
-    'Heure Début',
-    'Heure Fin',
-    'Bénévoles Max',
-    'Inscrits',
-    'Statut',
-    'Description',
-    'Bénévoles Inscrits (Noms)',
-    'Emails des Bénévoles',
-    'Téléphones'
-  ];
-  
-  const detailRows = volunteerShifts.map(shift => {
-    const shiftSignups = volunteerSignups.filter(signup => 
-      signup.shift_id === shift.id && signup.status !== 'cancelled'
-    );
-    
-    const volunteerNames = shiftSignups.map(signup => {
-      const volunteer = volunteers.find(v => v.id === signup.volunteer_id);
-      return volunteer?.full_name || `ID: ${signup.volunteer_id}`;
-    }).join('; ') || 'Aucun bénévole inscrit';
-    
-    const volunteerEmails = shiftSignups.map(signup => {
-      const volunteer = volunteers.find(v => v.id === signup.volunteer_id);
-      return volunteer?.email || '';
-    }).join('; ');
-    
-    const volunteerPhones = shiftSignups.map(signup => {
-      const volunteer = volunteers.find(v => v.id === signup.volunteer_id);
-      return volunteer?.phone || '';
-    }).join('; ');
-
-    return [
-      shift.title,
-      new Date(shift.shift_date).toLocaleDateString('fr-FR'),
-      shift.start_time,
-      shift.end_time,
-      shift.max_volunteers,
-      shift.current_volunteers,
-      getStatusLabel(shift.status),
-      shift.description,
-      volunteerNames,
-      volunteerEmails,
-      volunteerPhones
-    ];
-  });
-  
-  const detailData = [detailHeaders, ...detailRows];
-  const detailSheet = XLSX.utils.aoa_to_sheet(detailData);
-  XLSX.utils.book_append_sheet(workbook, detailSheet, 'Détail Créneaux');
-  
-  // 3. FEUILLE LISTE DES BÉNÉVOLES
-  const volunteerHeaders = [
-    'Nom Complet',
-    'Email',
-    'Téléphone',
-    'Créneaux Inscrits',
-    'Heures Complétées',
-    'Heures Restantes',
-    'Statut Progression',
-    'Dernière Inscription'
-  ];
-  
-  const volunteerRows = volunteers.map(volunteer => {
-    const userSignups = volunteerSignups.filter(signup => 
-      signup.volunteer_id === volunteer.id && signup.status !== 'cancelled'
-    );
-    
-    const completedHours = userSignups.reduce((total, signup) => {
-      const shift = volunteerShifts.find(s => s.id === signup.shift_id);
-      if (shift) {
-        const start = new Date(`2000-01-01T${shift.start_time}`);
-        const end = new Date(`2000-01-01T${shift.end_time}`);
-        return total + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      }
-      return total;
-    }, 0);
-    
-    const remainingHours = Math.max(0, 8 - completedHours);
-    const status = remainingHours === 0 ? 'Terminé ✅' : 
-                  completedHours > 0 ? 'En cours 🟡' : 'Non commencé ⭕';
-    
-    const lastSignup = userSignups.length > 0 ? 
-      new Date(Math.max(...userSignups.map(s => new Date(s.signed_up_at).getTime()))).toLocaleDateString('fr-FR') : 
-      'Aucune';
-    
-    return [
-      volunteer.full_name || volunteer.email,
-      volunteer.email,
-      volunteer.phone || 'Non renseigné',
-      userSignups.length,
-      Math.round(completedHours * 10) / 10,
-      Math.round(remainingHours * 10) / 10,
-      status,
-      lastSignup
-    ];
-  });
-  
-  const volunteerData = [volunteerHeaders, ...volunteerRows];
-  const volunteerSheet = XLSX.utils.aoa_to_sheet(volunteerData);
-  XLSX.utils.book_append_sheet(workbook, volunteerSheet, 'Liste Bénévoles');
-  
-  // Télécharger le fichier
-  const filename = `benevolat_BSF_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(workbook, filename);
-};
-
-// Fonction d'export des équipes
-export const exportTeamsToExcel = (performanceTeams: any[]) => {
-  const workbook = XLSX.utils.book_new();
-  
-  // 1. FEUILLE RÉSUMÉ
-  const summaryData = [
-    ['RAPPORT ÉQUIPES PERFORMANCE - BOSTON SALSA FESTIVAL 2025'],
-    ['Généré le:', new Date().toLocaleDateString('fr-FR')],
-    [],
-    ['STATISTIQUES'],
-    ['Total équipes:', performanceTeams.length],
-    ['Approuvées:', performanceTeams.filter(t => t.status === 'approved').length],
-    ['En attente:', performanceTeams.filter(t => t.status === 'submitted').length],
-    ['Brouillons:', performanceTeams.filter(t => t.status === 'draft').length],
-    ['Rejetées:', performanceTeams.filter(t => t.status === 'rejected').length],
-    [],
-    ['🚨 ÉQUIPES EN ATTENTE D\'ACTION (À TRAITER EN PRIORITÉ)'],
-    ['Nom Équipe', 'Directeur', 'Email', 'Studio']
-  ];
-  
-  // Ajouter les équipes en attente
-  const pendingTeams = performanceTeams.filter(team => team.status === 'submitted');
-  pendingTeams.forEach(team => {
-    summaryData.push([team.team_name, team.director_name, team.director_email, team.studio_name]);
-  });
-  
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Résumé');
-  
-  // 2. FEUILLE DÉTAIL DE TOUTES LES ÉQUIPES
-  const detailHeaders = [
-    'Nom Équipe',
-    'Directeur',
-    'Email Directeur',
-    'Studio',
-    'Ville',
-    'Pays',
-    'Nb Membres',
-    'Styles de Danse',
-    'Titre Chanson',
-    'Statut',
-    'Vidéo URL',
-    'Notes Organisateur',
-    'Action Requise'
-  ];
-  
-  const detailRows = performanceTeams.map(team => {
-    let actionRequise = '';
-    if (team.status === 'submitted') actionRequise = '👀 À RÉVISER';
-    else if (team.status === 'approved' && !team.performance_order) actionRequise = '📋 ASSIGNER ORDRE';
-    else if (team.status === 'approved') actionRequise = '✅ PRÊT';
-    else if (team.status === 'rejected') actionRequise = '📧 CONTACTER';
-    else actionRequise = '⏳ EN ATTENTE';
-    
-    return [
-      team.team_name,
-      team.director_name,
-      team.director_email,
-      team.studio_name,
-      team.city,
-      team.country,
-      team.group_size,
-      team.dance_styles.join(', '),
-      team.song_title || 'Non spécifié',
-      getTeamStatusLabel(team.status),
-      team.performance_video_url || 'Non fournie',
-      team.organizer_notes || 'Aucune note',
-      actionRequise
-    ];
-  });
-  
-  const detailData = [detailHeaders, ...detailRows];
-  const detailSheet = XLSX.utils.aoa_to_sheet(detailData);
-  XLSX.utils.book_append_sheet(workbook, detailSheet, 'Toutes les Équipes');
-  
-  // 3. FEUILLE ORDRE DE PASSAGE (équipes approuvées uniquement)
-  const approvedTeams = performanceTeams.filter(t => t.status === 'approved');
-  
-  const showData = [
-    ['🎭 ORDRE DE PASSAGE - SPECTACLE BOSTON SALSA FESTIVAL 2025'],
-    ['Généré le:', new Date().toLocaleDateString('fr-FR')],
-    [],
-    ['INFORMATIONS SPECTACLE'],
-    ['Total équipes approuvées:', approvedTeams.length],
-    ['Durée estimée spectacle:', `${approvedTeams.length * 4} minutes`],
-    [],
-    ['ORDRE DE PASSAGE'],
-    [
-      'Ordre',
-      'Nom Équipe',
-      'Directeur',
-      'Contact Directeur',
-      'Titre Chanson',
-      'Nb Danseurs',
-      'Styles',
-      'Notes Technique',
-      'Statut Musique'
-    ]
-  ];
-  
-  const showRows = approvedTeams
-    .sort((a, b) => (a.performance_order || 999) - (b.performance_order || 999))
-    .map((team, index) => [
-      team.performance_order || index + 1,
-      team.team_name,
-      team.director_name,
-      team.director_email,
-      team.song_title || '⚠️ MANQUANT',
-      team.group_size,
-      team.dance_styles.join(', '),
-      team.organizer_notes || 'RAS',
-      team.song_title ? '✅ OK' : '❌ MANQUANT'
-    ]);
-  
-  showData.push(...showRows);
-  
-  const showSheet = XLSX.utils.aoa_to_sheet(showData);
-  XLSX.utils.book_append_sheet(workbook, showSheet, 'Ordre Spectacle');
-  
-  // Télécharger
-  const filename = `equipes_BSF_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(workbook, filename);
-};
-
-// Export rapide pour le dashboard (vue globale)
-export const exportAllData = (
-  volunteerShifts: any[],
-  volunteerSignups: any[],
-  volunteers: any[],
-  performanceTeams: any[]
-) => {
-  const workbook = XLSX.utils.book_new();
-  
-  // Vue globale pour Hernan
-  const globalSummary = [
-    ['📊 RAPPORT COMPLET - BOSTON SALSA FESTIVAL 2025'],
-    ['Généré le:', new Date().toLocaleDateString('fr-FR')],
-    [''],
-    ['═══════════════════════════════════════════'],
-    ['🤝 BÉNÉVOLAT - RÉSUMÉ EXÉCUTIF'],
-    ['═══════════════════════════════════════════'],
-    ['Total créneaux bénévoles:', volunteerShifts.length],
-    ['Total bénévoles inscrits:', volunteers.length],
-    ['Créneaux critiques (< 50%):', volunteerShifts.filter(s => (s.current_volunteers / s.max_volunteers) < 0.5 && s.status === 'live').length],
-    ['Créneaux complets:', volunteerShifts.filter(s => s.status === 'full').length],
-    [''],
-    ['🎭 ÉQUIPES PERFORMANCE - RÉSUMÉ EXÉCUTIF'],
-    ['═══════════════════════════════════════════'],
-    ['Total équipes soumises:', performanceTeams.length],
-    ['Équipes approuvées:', performanceTeams.filter(t => t.status === 'approved').length],
-    ['En attente d\'action:', performanceTeams.filter(t => t.status === 'submitted').length],
-    ['Brouillons:', performanceTeams.filter(t => t.status === 'draft').length],
-    [''],
-    ['🚨 ACTIONS URGENTES REQUISES'],
-    ['═══════════════════════════════════════════']
-  ];
-  
-  // Ajouter les actions urgentes
-  const criticalShifts = volunteerShifts.filter(s => 
-    (s.current_volunteers / s.max_volunteers) < 0.5 && s.status === 'live'
-  );
-  const pendingTeams = performanceTeams.filter(t => t.status === 'submitted');
-  
-  if (criticalShifts.length > 0) {
-    globalSummary.push(['• Créneaux bénévoles urgents à remplir:', criticalShifts.length]);
-    criticalShifts.slice(0, 5).forEach(shift => {
-      globalSummary.push(['  -', `${shift.title} (${shift.current_volunteers}/${shift.max_volunteers})`]);
-    });
+    case 'xlsx':
+      const xlsx = generateXLSX(enrichedShifts, 'Volunteer Shifts');
+      downloadFile(xlsx, `${baseFilename}.xlsx`, 'application/vnd.ms-excel');
+      break;
+      
+    case 'pdf':
+      const pdf = generatePDF(enrichedShifts, 'Volunteer Shifts - BSF 2025');
+      downloadFile(pdf, `${baseFilename}.html`, 'text/html');
+      break;
   }
+};
+
+/**
+ * Export volunteer signups
+ */
+export const exportVolunteerSignups = (
+  signups: VolunteerSignup[], 
+  shifts: VolunteerShift[] = [],
+  volunteers: Volunteer[] = [],
+  format: ExportFormat = 'csv'
+): void => {
+  const enrichedSignups = signups.map(signup => {
+    const shift = shifts.find(s => s.id === signup.shift_id);
+    const volunteer = volunteers.find(v => v.id === signup.volunteer_id);
+    
+    return {
+      'Signup ID': signup.id,
+      'Shift ID': signup.shift_id,
+      'Volunteer Name': volunteer?.full_name || `Volunteer ${signup.volunteer_id}`,
+      'Volunteer Email': volunteer?.email || 'Not Available',
+      'Phone': volunteer?.phone || 'Not Available',
+      'Shift Title': shift?.title || 'Unknown Shift',
+      'Shift Date': shift ? new Date(shift.shift_date).toLocaleDateString('en-US') : 'N/A',
+      'Time': shift ? `${shift.start_time} - ${shift.end_time}` : 'N/A',
+      'Duration (h)': shift ? calculateHours(shift.start_time, shift.end_time) : 'N/A',
+      'Role Type': shift?.role_type || 'N/A',
+      'Organizer in Charge': shift?.organizer_in_charge || 'Not Assigned',
+      'Status': getStatusLabel(signup.status),
+      'Signup Date': new Date(signup.signed_up_at).toLocaleDateString('en-US'),
+      'Reminder Sent': signup.reminder_sent ? 'Yes' : 'No',
+      'Check-in': signup.checked_in_at ? new Date(signup.checked_in_at).toLocaleDateString('en-US') : 'No',
+      'QR Code': signup.qr_code || 'N/A'
+    };
+  });
+
+  const baseFilename = `volunteer_signups_${new Date().toISOString().split('T')[0]}`;
   
-  if (pendingTeams.length > 0) {
-    globalSummary.push(['• Équipes en attente d\'approbation:', pendingTeams.length]);
-    pendingTeams.slice(0, 5).forEach(team => {
-      globalSummary.push(['  -', `${team.team_name} (${team.director_name})`]);
-    });
+  switch (format) {
+    case 'csv':
+      const csv = arrayToCSV(enrichedSignups);
+      downloadFile(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+      break;
+      
+    case 'xlsx':
+      const xlsx = generateXLSX(enrichedSignups, 'Volunteer Signups');
+      downloadFile(xlsx, `${baseFilename}.xlsx`, 'application/vnd.ms-excel');
+      break;
+      
+    case 'pdf':
+      const pdf = generatePDF(enrichedSignups, 'Volunteer Signups - BSF 2025');
+      downloadFile(pdf, `${baseFilename}.html`, 'text/html');
+      break;
   }
+};
+
+/**
+ * Export performance teams
+ */
+export const exportPerformanceTeams = (
+  teams: PerformanceTeam[], 
+  format: ExportFormat = 'csv'
+): void => {
+  const enrichedTeams = teams.map(team => ({
+    'ID': team.id,
+    'Team Name': team.team_name,
+    'Director': team.director_name,
+    'Director Email': team.director_email,
+    'Studio': team.studio_name,
+    'City': team.city,
+    'State/Province': team.state || 'Not Specified',
+    'Country': team.country,
+    'Status': getStatusLabel(team.status),
+    'Song Title': team.song_title || 'N/A',
+    'Video': team.performance_video_url ? 'Yes' : 'No',
+    'Video URL': team.performance_video_url || 'N/A',
+    'Group Size': team.group_size,
+    'Dance Styles': team.dance_styles.join(', '),
+    'Level': team.level || 'Not Specified',
+    'Performance Order': team.performance_order || 'Not Set',
+    'Total Score': team.scoring?.total_score || 'Not Scored',
+    'Technical Score': team.scoring?.technical_score || 'N/A',
+    'Wow Score': team.scoring?.wow_factor_score || 'N/A',
+    'Size Score': team.scoring?.group_size_score || 'N/A',
+    'Variety Bonus': team.scoring?.style_variety_bonus || 'N/A',
+    'Organizer Notes': team.organizer_notes || 'None',
+    'Backup Team': team.backup_team ? 'Yes' : 'No',
+    'Can Edit Until': new Date(team.can_edit_until).toLocaleDateString('en-US'),
+    'Created By': team.created_by || 'N/A'
+  }));
+
+  const baseFilename = `performance_teams_${new Date().toISOString().split('T')[0]}`;
   
-  globalSummary.push(['']);
-  globalSummary.push(['📈 INDICATEURS CLÉS']);
-  globalSummary.push(['═══════════════════════════════════════════']);
-  globalSummary.push(['Taux de remplissage bénévoles:', `${Math.round((volunteerSignups.filter(s => s.status !== 'cancelled').length / volunteerShifts.reduce((sum, s) => sum + s.max_volunteers, 0)) * 100)}%`]);
-  globalSummary.push(['Taux d\'approbation équipes:', `${Math.round((performanceTeams.filter(t => t.status === 'approved').length / performanceTeams.length) * 100)}%`]);
+  switch (format) {
+    case 'csv':
+      const csv = arrayToCSV(enrichedTeams);
+      downloadFile(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+      break;
+      
+    case 'xlsx':
+      const xlsx = generateXLSX(enrichedTeams, 'Performance Teams');
+      downloadFile(xlsx, `${baseFilename}.xlsx`, 'application/vnd.ms-excel');
+      break;
+      
+    case 'pdf':
+      const pdf = generatePDF(enrichedTeams, 'Performance Teams - BSF 2025');
+      downloadFile(pdf, `${baseFilename}.html`, 'text/html');
+      break;
+  }
+};
+
+/**
+ * Export complete dashboard report
+ */
+export const exportDashboardReport = (
+  shifts: VolunteerShift[],
+  signups: VolunteerSignup[],
+  teams: PerformanceTeam[],
+  volunteers: Volunteer[] = [],
+  eventName: string = 'Event',
+  format: ExportFormat = 'csv'
+): void => {
+  // Metrics calculations
+  const totalShifts = shifts.length;
+  const liveShifts = shifts.filter(s => s.status === 'live').length;
+  const criticalShifts = shifts.filter(s => 
+    s.status === 'live' && (s.current_volunteers / s.max_volunteers) < 0.5
+  ).length;
+  const totalSignups = signups.length;
+  const checkedInSignups = signups.filter(s => s.status === 'checked_in').length;
   
-  const globalSheet = XLSX.utils.aoa_to_sheet(globalSummary);
-  XLSX.utils.book_append_sheet(workbook, globalSheet, 'Vue Globale');
+  const totalTeams = teams.length;
+  const approvedTeams = teams.filter(t => t.status === 'approved').length;
+  const pendingTeams = teams.filter(t => t.status === 'submitted').length;
+
+  // Report data
+  const reportData = [
+    {
+      'Category': 'EVENT',
+      'Metric': 'Name',
+      'Value': eventName,
+      'Details': `Report generated on ${new Date().toLocaleDateString('en-US')}`
+    },
+    {
+      'Category': 'VOLUNTEERS',
+      'Metric': 'Total Shifts',
+      'Value': totalShifts,
+      'Details': `${liveShifts} active`
+    },
+    {
+      'Category': 'VOLUNTEERS',
+      'Metric': 'Critical Shifts',
+      'Value': criticalShifts,
+      'Details': 'Less than 50% filled'
+    },
+    {
+      'Category': 'VOLUNTEERS',
+      'Metric': 'Total Signups',
+      'Value': totalSignups,
+      'Details': `${checkedInSignups} checked in`
+    },
+    {
+      'Category': 'TEAMS',
+      'Metric': 'Total Teams',
+      'Value': totalTeams,
+      'Details': `${approvedTeams} approved, ${pendingTeams} pending`
+    },
+    {
+      'Category': 'TEAMS',
+      'Metric': 'Participants',
+      'Value': teams.reduce((sum, team) => sum + team.group_size, 0),
+      'Details': 'Total dancers'
+    }
+  ];
+
+  const baseFilename = `dashboard_report_${new Date().toISOString().split('T')[0]}`;
   
-  const filename = `rapport_complet_BSF_${new Date().toISOString().split('T')[0]}.xlsx`;
-  XLSX.writeFile(workbook, filename);
+  switch (format) {
+    case 'csv':
+      const csv = arrayToCSV(reportData);
+      downloadFile(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+      break;
+      
+    case 'xlsx':
+      const xlsx = generateXLSX(reportData, 'Dashboard Report');
+      downloadFile(xlsx, `${baseFilename}.xlsx`, 'application/vnd.ms-excel');
+      break;
+      
+    case 'pdf':
+      const pdf = generatePDF(reportData, `Dashboard Report - ${eventName}`);
+      downloadFile(pdf, `${baseFilename}.html`, 'text/html');
+      break;
+  }
+};
+
+/**
+ * Quick export with automatic type detection
+ */
+export const quickExport = (
+  type: 'volunteers' | 'teams' | 'dashboard',
+  data: {
+    shifts?: VolunteerShift[];
+    signups?: VolunteerSignup[];
+    teams?: PerformanceTeam[];
+    volunteers?: Volunteer[];
+    eventName?: string;
+  },
+  format: ExportFormat = 'csv'
+): void => {
+  switch (type) {
+    case 'volunteers':
+      if (data.shifts) {
+        exportVolunteerShifts(data.shifts, data.signups, data.volunteers, format);
+      }
+      break;
+    case 'teams':
+      if (data.teams) {
+        exportPerformanceTeams(data.teams, format);
+      }
+      break;
+    case 'dashboard':
+      if (data.shifts && data.signups && data.teams) {
+        exportDashboardReport(
+          data.shifts, 
+          data.signups, 
+          data.teams, 
+          data.volunteers,
+          data.eventName, 
+          format
+        );
+      }
+      break;
+  }
+};
+
+// ================================
+// UTILITY FUNCTIONS
+// ================================
+
+/**
+ * Calculates duration in hours between two times
+ */
+const calculateHours = (startTime: string, endTime: string): number => {
+  const start = new Date(`2000-01-01T${startTime}`);
+  const end = new Date(`2000-01-01T${endTime}`);
+  return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60) * 10) / 10;
+};
+
+/**
+ * Returns English label for a status
+ */
+const getStatusLabel = (status: string): string => {
+  const statusMap: { [key: string]: string } = {
+    'unpublished': 'Unpublished',
+    'submitted': 'Submitted',
+    'approved': 'Approved',
+    'rejected': 'Rejected',
+    'live': 'Live',
+    'full': 'Full',
+    'cancelled': 'Cancelled',
+    'signed_up': 'Signed Up',
+    'confirmed': 'Confirmed',
+    'checked_in': 'Checked In',
+    'no_show': 'No Show',
+    'draft': 'Draft'
+  };
+  return statusMap[status] || status;
+};
+
+/**
+ * Generates simple QR code (URL encode)
+ */
+export const generateQRCodeData = (data: any): string => {
+  return btoa(JSON.stringify(data));
+};
+
+/**
+ * Decodes QR code
+ */
+export const decodeQRCodeData = (qrData: string): any => {
+  try {
+    return JSON.parse(atob(qrData));
+  } catch (e) {
+    console.error('QR decode error:', e);
+    return null;
+  }
+};
+
+// ================================
+// INTERFACE FUNCTIONS
+// ================================
+
+/**
+ * Opens export format selection modal
+ */
+export const showExportModal = (
+  type: 'volunteers' | 'teams' | 'dashboard',
+  data: {
+    shifts?: VolunteerShift[];
+    signups?: VolunteerSignup[];
+    teams?: PerformanceTeam[];
+    volunteers?: Volunteer[];
+    eventName?: string;
+  },
+  onExport?: (format: ExportFormat) => void
+): void => {
+  // This function could be implemented to open a format selection modal
+  // For now, we use the default format
+  quickExport(type, data, 'xlsx');
 };

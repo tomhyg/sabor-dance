@@ -58,7 +58,7 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
           <div className="mb-8">
             <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-md rounded-full text-white/90 text-sm font-medium mb-8 animate-fade-in">
               <Star className="w-4 h-4" />
-              Révolutionnez vos congrès de danse
+              {t.readyTitle}
               <Star className="w-4 h-4" />
             </div>
           </div>
@@ -73,9 +73,9 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
 
           {/* Subtitle with animation */}
           <p className="text-xl md:text-2xl lg:text-3xl text-white/80 font-medium max-w-4xl mx-auto leading-relaxed mb-16 animate-fade-in delay-400">
-            La plateforme qui digitalise l'expérience des congrès de danse latine
+            {t.subtitle}
             <br />
-            <span className="text-pink-300">Salsa • Bachata • Kizomba • Zouk</span>
+            <span className="text-pink-300">{t.salsa} • {t.bachata} • {t.merengue} • {t.zouk}</span>
           </p>
 
           {/* CTA Buttons */}
@@ -95,7 +95,7 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
               <div className="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center group-hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
                 <Play className="w-8 h-8 ml-1" />
               </div>
-              Voir la démo
+              {t.watchSample}
             </button>
           </div>
         </div>
@@ -107,10 +107,10 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
           {/* Section Header */}
           <div className="text-center mb-20">
             <h2 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300 mb-6">
-              Fonctionnalités
+              {t.eventsTitle}
             </h2>
             <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Des outils puissants pour organiser des événements inoubliables
+              {t.eventsDesc}
             </p>
           </div>
 
@@ -190,7 +190,7 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
                   {t.profiles}
                 </h3>
                 <p className="text-white/90 text-lg leading-relaxed mb-8">
-                  Découvrez les profils des artistes et instructeurs de danse latine
+                  {t.artistProfile}
                 </p>
                 
                 <div className="flex items-center text-white/80 group-hover:text-white transition-colors">
@@ -235,7 +235,7 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
               </button>
               
               <button className="px-8 py-6 border-2 border-white/20 text-white text-xl font-semibold rounded-2xl hover:border-white/40 hover:bg-white/5 transition-all duration-300">
-                Demander une démo
+                {t.watchSample}
               </button>
             </div>
           </div>

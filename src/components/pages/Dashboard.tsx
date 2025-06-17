@@ -19,11 +19,13 @@ import {
   Mail,
   MessageSquare,
   UserX,
-  Bell
+  Bell,
+  ChevronDown, 
+  FileSpreadsheet
 } from 'lucide-react';
 
 // Import des fonctions d'export
-import { exportVolunteersToExcel, exportTeamsToExcel, exportAllData } from '../../utils/exportUtils';
+import { quickExport, exportDashboardReport } from '../../utils/exportUtils';
 
 interface DashboardProps {
   t: any;
@@ -43,6 +45,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [timeFilter, setTimeFilter] = useState('today');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [showVolunteerExportDropdown, setShowVolunteerExportDropdown] = useState(false);
+  const [showTeamExportDropdown, setShowTeamExportDropdown] = useState(false);
+  const [showAllExportDropdown, setShowAllExportDropdown] = useState(false);
 
   // Données simulées des bénévoles avec contacts
   const volunteers = [
@@ -66,38 +71,55 @@ const Dashboard: React.FC<DashboardProps> = ({
   const approvedTeams = performanceTeams.filter(t => t.status === 'approved').length;
   const pendingTeams = performanceTeams.filter(t => t.status === 'submitted').length;
 
-  // Handlers pour les exports Excel
-  const handleExportVolunteers = () => {
+  const handleExportVolunteers = (format: 'xlsx' | 'csv' | 'pdf' = 'xlsx') => {
     try {
-      exportVolunteersToExcel(volunteerShifts, volunteerSignups, volunteers);
-      setActionFeedback({type: 'success', message: '✅ Export bénévoles généré avec succès !'});
+      quickExport('volunteers', {
+        shifts: volunteerShifts,
+        signups: volunteerSignups,
+        volunteers: volunteers,
+        eventName: 'Boston Salsa Festival 2025'
+      }, format);
+      setActionFeedback({type: 'success', message: `✅ ${t.exportVolunteers || 'Export bénévoles'} ${t.operationSuccess || 'généré avec succès'} !`});
     } catch (error) {
       console.error('Erreur export bénévoles:', error);
-      setActionFeedback({type: 'error', message: '❌ Erreur lors de l\'export des bénévoles'});
+      setActionFeedback({type: 'error', message: `❌ ${t.operationError || 'Erreur lors de l\'export des bénévoles'}`});
     }
     setTimeout(() => setActionFeedback(null), 4000);
+    setShowVolunteerExportDropdown(false);
   };
-
-  const handleExportTeams = () => {
+  
+  const handleExportTeams = (format: 'xlsx' | 'csv' | 'pdf' = 'xlsx') => {
     try {
-      exportTeamsToExcel(performanceTeams);
-      setActionFeedback({type: 'success', message: '✅ Export équipes généré avec succès !'});
+      quickExport('teams', {
+        teams: performanceTeams,
+        eventName: 'Boston Salsa Festival 2025'
+      }, format);
+      setActionFeedback({type: 'success', message: `✅ ${t.exportTeams || 'Export équipes'} ${t.operationSuccess || 'généré avec succès'} !`});
     } catch (error) {
       console.error('Erreur export équipes:', error);
-      setActionFeedback({type: 'error', message: '❌ Erreur lors de l\'export des équipes'});
+      setActionFeedback({type: 'error', message: `❌ ${t.operationError || 'Erreur lors de l\'export des équipes'}`});
     }
     setTimeout(() => setActionFeedback(null), 4000);
+    setShowTeamExportDropdown(false);
   };
-
-  const handleExportAll = () => {
+  
+  const handleExportAll = (format: 'xlsx' | 'csv' | 'pdf' = 'xlsx') => {
     try {
-      exportAllData(volunteerShifts, volunteerSignups, volunteers, performanceTeams);
-      setActionFeedback({type: 'success', message: '✅ Export complet généré avec succès !'});
+      exportDashboardReport(
+        volunteerShifts,
+        volunteerSignups,
+        performanceTeams,
+        volunteers,
+        'Boston Salsa Festival 2025',
+        format
+      );
+      setActionFeedback({type: 'success', message: `✅ ${t.exportData || 'Export complet'} ${t.operationSuccess || 'généré avec succès'} !`});
     } catch (error) {
       console.error('Erreur export complet:', error);
-      setActionFeedback({type: 'error', message: '❌ Erreur lors de l\'export complet'});
+      setActionFeedback({type: 'error', message: `❌ ${t.operationError || 'Erreur lors de l\'export complet'}`});
     }
     setTimeout(() => setActionFeedback(null), 4000);
+    setShowAllExportDropdown(false);
   };
 
   // Données pour les graphiques
@@ -109,9 +131,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   }));
 
   const teamsByStatus = [
-    { name: 'Approuvées', value: approvedTeams, color: 'bg-green-500' },
-    { name: 'En attente', value: pendingTeams, color: 'bg-yellow-500' },
-    { name: 'Brouillon', value: performanceTeams.filter(t => t.status === 'draft').length, color: 'bg-gray-500' }
+    { name: t.approved || 'Approuvées', value: approvedTeams, color: 'bg-green-500' },
+    { name: t.pending || 'En attente', value: pendingTeams, color: 'bg-yellow-500' },
+    { name: t.draft || 'Brouillon', value: performanceTeams.filter(t => t.status === 'draft').length, color: 'bg-gray-500' }
   ];
 
   // Calculer les absents attendus (bénévoles inscrits mais pas encore scannés)
@@ -154,17 +176,17 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Actions organisateur
   const handleCallVolunteer = (volunteer: any) => {
-    setActionFeedback({type: 'success', message: `📞 Appel simulé vers ${volunteer.name}`});
+    setActionFeedback({type: 'success', message: `📞 ${t.sendEmail || 'Appel simulé vers'} ${volunteer.name}`});
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
   const handleSendReminder = (volunteer: any) => {
-    setActionFeedback({type: 'success', message: `📱 Rappel SMS envoyé à ${volunteer.name}`});
+    setActionFeedback({type: 'success', message: `📱 ${t.reminders || 'Rappel SMS'} ${t.emailSent || 'envoyé à'} ${volunteer.name}`});
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
   const handleMarkAbsent = (volunteer: any) => {
-    setActionFeedback({type: 'error', message: `❌ ${volunteer.name} marqué(e) absent(e)`});
+    setActionFeedback({type: 'error', message: `❌ ${volunteer.name} ${t.noShow || 'marqué(e) absent(e)'}`});
     setTimeout(() => setActionFeedback(null), 3000);
   };
 
@@ -186,10 +208,10 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
-                Dashboard Analytics
+                {t.dashboardTitle || 'Dashboard Analytics'}
               </h1>
               <p className="text-xl text-blue-100 max-w-2xl">
-                Tableau de bord temps réel pour Boston Salsa Festival 2025
+                {t.overview || 'Tableau de bord temps réel pour Boston Salsa Festival 2025'}
               </p>
             </div>
             
@@ -228,7 +250,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-2xl font-black text-red-400">{criticalShifts}</span>
             </div>
             <h3 className="text-white font-bold mb-2">{t.criticalShifts || 'Créneaux Critiques'}</h3>
-            <p className="text-gray-300 text-sm">Moins de 50% remplis</p>
+            <p className="text-gray-300 text-sm">{t.critical || 'Moins de 50% remplis'}</p>
             <div className="mt-4 w-full bg-gray-700/50 rounded-full h-2">
               <div 
                 className="bg-gradient-to-r from-red-500 to-pink-500 h-2 rounded-full transition-all duration-500"
@@ -246,10 +268,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-2xl font-black text-green-400">{totalVolunteers}</span>
             </div>
             <h3 className="text-white font-bold mb-2">{t.volunteersRegistered || 'Bénévoles Inscrits'}</h3>
-            <p className="text-gray-300 text-sm">Total inscriptions</p>
+            <p className="text-gray-300 text-sm">{t.total || 'Total'} {t.signUp || 'inscriptions'}</p>
             <div className="mt-4 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-green-400" />
-              <span className="text-green-400 text-sm font-semibold">+12% cette semaine</span>
+              <span className="text-green-400 text-sm font-semibold">+12% {t.thisWeek || 'cette semaine'}</span>
             </div>
           </div>
 
@@ -262,7 +284,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-2xl font-black text-blue-400">{fullShifts}</span>
             </div>
             <h3 className="text-white font-bold mb-2">{t.completedShifts || 'Créneaux Complets'}</h3>
-            <p className="text-gray-300 text-sm">Sur {totalShifts} créneaux</p>
+            <p className="text-gray-300 text-sm">{t.total || 'Sur'} {totalShifts} {t.volunteers || 'créneaux'}</p>
             <div className="mt-4 w-full bg-gray-700/50 rounded-full h-2">
               <div 
                 className="bg-gradient-to-r from-blue-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
@@ -280,10 +302,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="text-2xl font-black text-purple-400">{approvedTeams}</span>
             </div>
             <h3 className="text-white font-bold mb-2">{t.approvedTeams || 'Équipes Approuvées'}</h3>
-            <p className="text-gray-300 text-sm">Sur {totalTeams} soumissions</p>
+            <p className="text-gray-300 text-sm">{t.total || 'Sur'} {totalTeams} {t.teams || 'soumissions'}</p>
             <div className="mt-4 flex items-center gap-2">
               <Star className="w-4 h-4 text-purple-400" />
-              <span className="text-purple-400 text-sm font-semibold">{pendingTeams} en attente</span>
+              <span className="text-purple-400 text-sm font-semibold">{pendingTeams} {t.pending || 'en attente'}</span>
             </div>
           </div>
         </div>
@@ -292,37 +314,128 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-gradient-to-br from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8 mb-8">
           <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
             <Download className="w-8 h-8 text-blue-400" />
-            Exports Excel
+            {t.exportData || 'Exports de Données'}
           </h3>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <button 
-              onClick={handleExportVolunteers}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
-            >
-              <Download size={20} />
-              Export Bénévoles
-            </button>
             
-            <button 
-              onClick={handleExportTeams}
-              className="bg-gradient-to-r from-purple-500 to-violet-600 text-white p-4 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
-            >
-              <FileText size={20} />
-              Export Équipes
-            </button>
-            
-            <button 
-              onClick={handleExportAll}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
-            >
-              <BarChart3 size={20} />
-              Export Complet
-            </button>
-            
+            {/* Export Bénévoles avec dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowVolunteerExportDropdown(!showVolunteerExportDropdown)}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
+              >
+                <Download size={20} />
+                {t.exportVolunteers || 'Export Bénévoles'}
+                <ChevronDown size={16} className={`transition-transform ${showVolunteerExportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showVolunteerExportDropdown && (
+                <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 w-full">
+                  <button
+                    onClick={() => handleExportVolunteers('xlsx')}
+                    className="w-full px-4 py-3 text-left text-green-300 hover:bg-gray-700 rounded-t-xl flex items-center gap-2"
+                  >
+                    <FileSpreadsheet size={16} />
+                    {t.excelFormat || 'Excel (XLSX)'}
+                  </button>
+                  <button
+                    onClick={() => handleExportVolunteers('csv')}
+                    className="w-full px-4 py-3 text-left text-blue-300 hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    {t.csvFormat || 'CSV'}
+                  </button>
+                  <button
+                    onClick={() => handleExportVolunteers('pdf')}
+                    className="w-full px-4 py-3 text-left text-red-300 hover:bg-gray-700 rounded-b-xl flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    {t.pdfFormat || 'PDF'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Export Équipes avec dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTeamExportDropdown(!showTeamExportDropdown)}
+                className="w-full bg-gradient-to-r from-purple-500 to-violet-600 text-white p-4 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
+              >
+                <FileText size={20} />
+                {t.exportTeams || 'Export Équipes'}
+                <ChevronDown size={16} className={`transition-transform ${showTeamExportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showTeamExportDropdown && (
+                <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 w-full">
+                  <button
+                    onClick={() => handleExportTeams('xlsx')}
+                    className="w-full px-4 py-3 text-left text-purple-300 hover:bg-gray-700 rounded-t-xl flex items-center gap-2"
+                  >
+                    <FileSpreadsheet size={16} />
+                    {t.excelFormat || 'Excel (XLSX)'}
+                  </button>
+                  <button
+                    onClick={() => handleExportTeams('csv')}
+                    className="w-full px-4 py-3 text-left text-blue-300 hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    {t.csvFormat || 'CSV'}
+                  </button>
+                  <button
+                    onClick={() => handleExportTeams('pdf')}
+                    className="w-full px-4 py-3 text-left text-red-300 hover:bg-gray-700 rounded-b-xl flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    {t.pdfFormat || 'PDF'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Export Complet avec dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowAllExportDropdown(!showAllExportDropdown)}
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105"
+              >
+                <BarChart3 size={20} />
+                {t.exportData || 'Export Complet'}
+                <ChevronDown size={16} className={`transition-transform ${showAllExportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showAllExportDropdown && (
+                <div className="absolute top-full left-0 mt-2 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl z-50 w-full">
+                  <button
+                    onClick={() => handleExportAll('xlsx')}
+                    className="w-full px-4 py-3 text-left text-blue-300 hover:bg-gray-700 rounded-t-xl flex items-center gap-2"
+                  >
+                    <FileSpreadsheet size={16} />
+                    {t.excelFormat || 'Excel (XLSX)'}
+                  </button>
+                  <button
+                    onClick={() => handleExportAll('csv')}
+                    className="w-full px-4 py-3 text-left text-blue-300 hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    {t.csvFormat || 'CSV'}
+                  </button>
+                  <button
+                    onClick={() => handleExportAll('pdf')}
+                    className="w-full px-4 py-3 text-left text-red-300 hover:bg-gray-700 rounded-b-xl flex items-center gap-2"
+                  >
+                    <FileText size={16} />
+                    {t.pdfFormat || 'PDF'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Analyse Avancée */}
             <button className="bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all duration-300 flex items-center gap-3 justify-center shadow-lg hover:shadow-2xl transform hover:scale-105">
               <Target size={20} />
-              Analyse Avancée
+              {t.statistics || 'Analyse Avancée'}
             </button>
           </div>
 
@@ -345,9 +458,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           )}
 
           <div className="mt-6 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-            <h4 className="text-indigo-300 font-semibold mb-2">Performance Globale</h4>
+            <h4 className="text-indigo-300 font-semibold mb-2">{t.overview || 'Performance Globale'}</h4>
             <div className="text-3xl font-black text-white mb-1">87%</div>
-            <p className="text-gray-300 text-sm">Taux de remplissage global</p>
+            <p className="text-gray-300 text-sm">{t.progressPercentage || 'Taux de remplissage'} {t.total || 'global'}</p>
           </div>
         </div>
 
@@ -417,13 +530,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="mt-8 p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl">
               <div className="flex items-center gap-3 mb-2">
                 <Activity className="w-5 h-5 text-purple-400" />
-                <span className="text-purple-300 font-semibold">Performance Insights</span>
+                <span className="text-purple-300 font-semibold">{t.statistics || 'Performance Insights'}</span>
               </div>
               <p className="text-gray-300 text-sm">
-                Score moyen des équipes: <span className="text-white font-bold">8.2/10</span>
+                {t.rating || 'Score moyen des équipes'}: <span className="text-white font-bold">8.2/10</span>
               </p>
               <p className="text-gray-300 text-sm">
-                Temps moyen d'approbation: <span className="text-white font-bold">2.3 jours</span>
+                {t.duration || 'Temps moyen d\'approbation'}: <span className="text-white font-bold">2.3 {t.days || 'jours'}</span>
               </p>
             </div>
           </div>
@@ -435,14 +548,14 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="lg:col-span-2 bg-gradient-to-br from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8">
             <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
               <UserX className="w-8 h-8 text-red-400" />
-              Absents Attendus ({expectedAbsents.length})
+              {t.noShow || 'Absents Attendus'} ({expectedAbsents.length})
             </h3>
             
             {expectedAbsents.length === 0 ? (
               <div className="text-center py-8">
                 <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
-                <p className="text-green-300 text-lg font-semibold">Tous les bénévoles sont présents !</p>
-                <p className="text-gray-400">Aucun absent pour les créneaux actuels</p>
+                <p className="text-green-300 text-lg font-semibold">{t.checkedIn || 'Tous les bénévoles sont présents'} !</p>
+                <p className="text-gray-400">{t.noData || 'Aucun absent pour les créneaux actuels'}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -452,10 +565,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <div>
                         <h4 className="text-white font-bold text-lg">{volunteer.name}</h4>
                         <p className="text-red-300 text-sm">
-                          Créneau: {volunteer.shift.title} ({volunteer.shift.start_time} - {volunteer.shift.end_time})
+                          {t.shiftTitle || 'Créneau'}: {volunteer.shift.title} ({volunteer.shift.start_time} - {volunteer.shift.end_time})
                         </p>
                         <p className="text-gray-400 text-xs">
-                          Inscrit le {new Date(volunteer.signupTime).toLocaleDateString()}
+                          {t.signedUp || 'Inscrit le'} {new Date(volunteer.signupTime).toLocaleDateString()}
                         </p>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -463,7 +576,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           ? 'bg-yellow-500/20 text-yellow-300' 
                           : 'bg-gray-500/20 text-gray-300'
                       }`}>
-                        {volunteer.status === 'confirmed' ? 'Confirmé' : 'Inscrit'}
+                        {volunteer.status === 'confirmed' ? t.confirmed || 'Confirmé' : t.signedUp || 'Inscrit'}
                       </span>
                     </div>
                     
@@ -480,21 +593,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                         className="bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition-colors flex items-center gap-2"
                       >
                         <Phone size={16} />
-                        Appeler
+                        {t.contactArtist || 'Appeler'}
                       </button>
                       <button
                         onClick={() => handleSendReminder(volunteer)}
                         className="bg-green-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-green-600 transition-colors flex items-center gap-2"
                       >
                         <MessageSquare size={16} />
-                        Rappel SMS
+                        {t.reminders || 'Rappel SMS'}
                       </button>
                       <button
                         onClick={() => handleMarkAbsent(volunteer)}
                         className="bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors flex items-center gap-2"
                       >
                         <UserX size={16} />
-                        Marquer absent
+                        {t.noShow || 'Marquer absent'}
                       </button>
                     </div>
                   </div>
@@ -510,44 +623,44 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="space-y-4">
               <button className="w-full bg-gradient-to-r from-purple-500 to-violet-600 text-white p-4 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-3">
                 <Calendar size={20} />
-                Planning Équipes
+                {t.teams || 'Planning Équipes'}
               </button>
               
               <button className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white p-4 rounded-xl font-semibold hover:from-orange-600 hover:to-red-700 transition-all duration-300 flex items-center gap-3">
                 <Bell size={20} />
-                Envoyer Notifications
+                {t.notifications || 'Envoyer Notifications'}
               </button>
             </div>
 
             <div className="mt-6 p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-              <h4 className="text-indigo-300 font-semibold mb-2">Performance Globale</h4>
+              <h4 className="text-indigo-300 font-semibold mb-2">{t.overview || 'Performance Globale'}</h4>
               <div className="text-3xl font-black text-white mb-1">87%</div>
-              <p className="text-gray-300 text-sm">Taux de remplissage global</p>
+              <p className="text-gray-300 text-sm">{t.progressPercentage || 'Taux de remplissage'} {t.total || 'global'}</p>
             </div>
           </div>
         </div>
 
         {/* Statistiques détaillées */}
         <div className="bg-gradient-to-br from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8">
-          <h3 className="text-2xl font-bold text-white mb-6">Statistiques Détaillées</h3>
+          <h3 className="text-2xl font-bold text-white mb-6">{t.statistics || 'Statistiques Détaillées'}</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="text-4xl font-black text-blue-400 mb-2">700</div>
-              <p className="text-gray-300">Participants attendus</p>
+              <p className="text-gray-300">{t.attendee || 'Participants'} {t.upcoming || 'attendus'}</p>
               <p className="text-sm text-gray-400 mt-1">Boston Salsa Festival</p>
             </div>
             
             <div className="text-center">
               <div className="text-4xl font-black text-green-400 mb-2">~200</div>
-              <p className="text-gray-300">Créneaux bénévoles</p>
-              <p className="text-sm text-gray-400 mt-1">Sur 3 jours</p>
+              <p className="text-gray-300">{t.volunteers || 'Créneaux bénévoles'}</p>
+              <p className="text-sm text-gray-400 mt-1">{t.total || 'Sur'} 3 {t.days || 'jours'}</p>
             </div>
             
             <div className="text-center">
               <div className="text-4xl font-black text-purple-400 mb-2">45</div>
-              <p className="text-gray-300">Équipes performance</p>
-              <p className="text-sm text-gray-400 mt-1">Venues du monde entier</p>
+              <p className="text-gray-300">{t.teams || 'Équipes'} {t.teamPerformance || 'performance'}</p>
+              <p className="text-sm text-gray-400 mt-1">{t.location || 'Venues du monde entier'}</p>
             </div>
           </div>
         </div>
