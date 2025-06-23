@@ -1,4 +1,4 @@
-// src/components/SaborDanceApp.tsx - Version complète avec router auth
+// src/components/SaborDanceApp.tsx - Version simplifiée avec notifications modulaires
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Music, LogIn, LogOut, User, Plus, Clock, X, CheckCircle, Eye, EyeOff, Star, MessageSquare, Copy, Bell, Play, Instagram, ExternalLink, Heart, UserCheck, ArrowRight, BarChart3 } from 'lucide-react';
 
@@ -20,6 +20,12 @@ import { AuthRouter } from './AuthRouter';
 
 // Import des types
 import { PerformanceTeam } from '../types/PerformanceTeam';
+
+// ===== IMPORT DU SYSTÈME DE NOTIFICATIONS MODULAIRE =====
+import { UrgentTasksBadge } from './notifications/UrgentTasksBadge';
+import { UrgentTasksModal } from './notifications/UrgentTasksModal';
+import { useNotifications } from '../hooks/useNotifications';
+import { UserRole } from '../services/notifications/notificationService';
 
 // Types unifiés
 interface User {
@@ -152,9 +158,12 @@ const UserStatusDisplay = ({ user, isTestUser }: { user: User, isTestUser: boole
   </div>
 );
 
-// Composant principal
+// =============================================
+// COMPOSANT PRINCIPAL
+// =============================================
+
 const SaborDanceApp = () => {
-  // ===== HOOKS D'AUTHENTIFICATION MIS À JOUR =====
+  // ===== HOOKS D'AUTHENTIFICATION =====
   const { 
     user: supabaseUser, 
     loading: authLoading, 
@@ -173,9 +182,18 @@ const SaborDanceApp = () => {
   // Conversion utilisateur
   const currentUser: User | null = supabaseUser ? convertSupabaseUserToLocal(supabaseUser as any) : null;
 
+  // ===== HOOK NOTIFICATIONS =====
+  const {
+    tasks,
+    urgentCount,
+    totalCount,
+    generateFromData
+  } = useNotifications(currentUser?.role as UserRole || 'volunteer');
+
   // États de l'application
   const [currentView, setCurrentView] = useState('home');
   const [showAuth, setShowAuth] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [currentLanguage, setCurrentLanguage] = useState<Language>(DEFAULT_LANGUAGE);
   const [language, setLanguage] = useState<'fr' | 'en' | 'es'>('en');
@@ -196,6 +214,14 @@ const SaborDanceApp = () => {
       loadInitialData();
     }
   }, [currentUser?.id]);
+
+  // ===== GÉNÉRATION AUTOMATIQUE DE NOTIFICATIONS =====
+  useEffect(() => {
+    if (currentUser && (volunteerShifts.length > 0 || performanceTeams.length > 0)) {
+      console.log('🔔 Génération notifications pour:', currentUser.role);
+      generateFromData(volunteerShifts, performanceTeams);
+    }
+  }, [currentUser, volunteerShifts, performanceTeams, generateFromData]);
 
   const loadInitialData = async () => {
     setDataLoading(true);
@@ -301,7 +327,6 @@ const SaborDanceApp = () => {
 
   // ===== GESTIONNAIRES D'AUTHENTIFICATION =====
   
-  // Connexion test rapide (gardée pour compatibilité)
   const handleTestLogin = async (email: string) => {
     try {
       const result = await signInAsTestUser(email);
@@ -315,7 +340,6 @@ const SaborDanceApp = () => {
     }
   };
 
-  // Gestionnaires pour AuthModal
   const handleSignIn = async (email: string, password: string) => {
     const result = await signIn(email, password);
     return { error: result.error };
@@ -335,6 +359,25 @@ const SaborDanceApp = () => {
       error: result.error, 
       message: result.message || null 
     };
+  };
+
+  // ===== GESTIONNAIRE D'ACTIONS NOTIFICATIONS =====
+  const handleNotificationAction = (task: any) => {
+    console.log(`🎯 Action notification: ${task.title}`);
+    
+    // Redirection intelligente selon le type de tâche
+    if (task.category === 'volunteer' && task.relatedData?.shiftIds) {
+      setCurrentView('volunteers');
+      // TODO: Implémenter le filtrage/highlight des créneaux spécifiques
+    } else if (task.category === 'team' && task.relatedData?.teamIds) {
+      setCurrentView('teams');
+      // TODO: Implémenter le filtrage/highlight des équipes spécifiques
+    } else if (task.category === 'approval') {
+      setCurrentView('teams');
+      // TODO: Appliquer automatiquement le filtre "submitted"
+    } else if (task.category === 'shift') {
+      setCurrentView('volunteers');
+    }
   };
 
   // Fonction pour vérifier les permissions
@@ -402,7 +445,7 @@ const SaborDanceApp = () => {
     </div>
   );
 
-  // Navigation avec logique des rôles
+  // Navigation avec badge notifications
   const Navigation = () => (
     <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40 backdrop-blur-sm bg-white/95">
       <div className="container mx-auto px-4">
@@ -417,7 +460,6 @@ const SaborDanceApp = () => {
 
             {currentUser && (
               <div className="hidden md:flex space-x-2">
-                {/* Dashboard - Seulement organizers/admin */}
                 {hasPermission(currentUser.role, 'dashboard') && (
                   <button
                     onClick={() => setCurrentView('dashboard')}
@@ -431,7 +473,6 @@ const SaborDanceApp = () => {
                   </button>
                 )}
 
-                {/* Volunteers */}
                 {hasPermission(currentUser.role, 'volunteers') && (
                   <button
                     onClick={() => setCurrentView('volunteers')}
@@ -445,7 +486,6 @@ const SaborDanceApp = () => {
                   </button>
                 )}
 
-                {/* Teams */}
                 {hasPermission(currentUser.role, 'teams') && (
                   <button
                     onClick={() => setCurrentView('teams')}
@@ -459,7 +499,6 @@ const SaborDanceApp = () => {
                   </button>
                 )}
 
-                {/* Profiles */}
                 <button
                   onClick={() => setCurrentView('profiles')}
                   className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${currentView === 'profiles'
@@ -477,9 +516,16 @@ const SaborDanceApp = () => {
           <div className="flex items-center space-x-4">
             <LanguageSelector />
 
+            {/* BADGE NOTIFICATIONS */}
+            {currentUser && (
+              <UrgentTasksBadge 
+                userRole={currentUser.role as UserRole}
+                onClick={() => setShowNotifications(true)}
+              />
+            )}
+
             {currentUser ? (
               <div className="flex items-center space-x-4">
-                {/* Badge utilisateur */}
                 <div className="flex items-center space-x-3 bg-gray-50 rounded-xl px-4 py-2">
                   <div className="w-8 h-8 bg-gradient-to-r from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
                     {currentUser.profile_image ? (
@@ -620,7 +666,6 @@ const SaborDanceApp = () => {
         );
 
       default:
-        // Page d'accueil avec boutons de test
         if (currentUser) {
           const defaultPages: Record<string, string> = {
             'volunteer': 'volunteers',
@@ -641,7 +686,7 @@ const SaborDanceApp = () => {
           <>
             <HomePage t={t} setCurrentView={setCurrentView} setShowAuth={setShowAuth} />
 
-            {/* Section de test - Affichée seulement si pas connecté */}
+            {/* Section de test */}
             {!currentUser && (
               <div className="container mx-auto px-4 py-8">
                 <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 p-6 rounded-xl mb-8 max-w-4xl mx-auto border border-orange-200">
@@ -686,7 +731,6 @@ const SaborDanceApp = () => {
               </div>
             )}
 
-            {/* Affichage utilisateur connecté - Corrigé */}
             {currentUser && <UserStatusDisplay user={currentUser} isTestUser={isTestUser} />}
           </>
         );
@@ -711,6 +755,15 @@ const SaborDanceApp = () => {
           onResetPassword={handleResetPassword}
           t={t}
         />
+
+        {/* MODAL NOTIFICATIONS */}
+        {showNotifications && currentUser && (
+          <UrgentTasksModal 
+            userRole={currentUser.role as UserRole}
+            onClose={() => setShowNotifications(false)}
+            onTaskAction={handleNotificationAction}
+          />
+        )}
       </div>
     </AuthRouter>
   );

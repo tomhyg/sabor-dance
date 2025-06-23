@@ -1,8 +1,34 @@
-// src/services/teamService.ts - VERSION COMPLÈTE AVEC markAsCompleted AJOUTÉ
+// src/services/teamService.ts - VERSION FINALE COMPLÈTE AVEC BONS NOMS DE BUCKETS
 import { supabase } from '../lib/supabase';
 import { PerformanceTeam, TechRehearsalRating } from '../types/PerformanceTeam';
 
 const getErrorMessage = (error: unknown): string => {
+  console.log('🔍 Type d\'erreur:', typeof error, error);
+  
+  if (error && typeof error === 'object') {
+    // Erreur Supabase
+    if ('message' in error && typeof error.message === 'string') {
+      return error.message;
+    }
+    
+    // Erreur PostgreSQL
+    if ('details' in error && typeof error.details === 'string') {
+      return error.details;
+    }
+    
+    // Erreur avec code
+    if ('code' in error && 'hint' in error) {
+      return `Code: ${error.code} - ${error.hint || 'Erreur base de données'}`;
+    }
+    
+    // Tenter de sérialiser l'objet
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Erreur inconnue lors de la sérialisation';
+    }
+  }
+  
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
   return String(error);
@@ -14,41 +40,166 @@ export interface ServiceResponse<T> {
   message?: string;
 }
 
-export const teamService = {
-  // =====================
-  // FONCTIONS EXISTANTES
-  // =====================
+// Fonction pour nettoyer et valider les données avant insertion
+const validateAndCleanTeamData = (teamData: any) => {
+  console.log('🧹 Données reçues:', teamData);
+  
+  // ✅ FILTRER LES OBJETS FILE qui ne doivent pas aller en base
+  const { music_file, team_photo, ...dataWithoutFiles } = teamData;
+  
+  // ✅ Mapper 'professional' vers 'pro' pour la base
+  let performance_level = dataWithoutFiles.performance_level;
+  if (performance_level === 'professional') {
+    performance_level = 'pro';
+  }
+  
+  // ✅ Assurer que country a une valeur par défaut
+  const country = dataWithoutFiles.country && dataWithoutFiles.country.trim() 
+    ? dataWithoutFiles.country.trim() 
+    : 'USA'; // Valeur par défaut
+  
+  // ✅ Nettoyer toutes les chaînes
+  const cleanedData = {
+    ...dataWithoutFiles,
+    team_name: dataWithoutFiles.team_name?.trim() || '',
+    director_name: dataWithoutFiles.director_name?.trim() || '',
+    director_email: dataWithoutFiles.director_email?.toLowerCase().trim() || '',
+    director_phone: dataWithoutFiles.director_phone?.trim() || null,
+    studio_name: dataWithoutFiles.studio_name?.trim() || null,
+    city: dataWithoutFiles.city?.trim() || '',
+    state: dataWithoutFiles.state?.trim() || null,
+    country: country,
+    performance_level: performance_level,
+    performance_video_url: dataWithoutFiles.performance_video_url?.trim() || null,
+    instagram: dataWithoutFiles.instagram?.trim() || null,
+    website_url: dataWithoutFiles.website_url?.trim() || null,
+    dance_styles: Array.isArray(dataWithoutFiles.dance_styles) ? dataWithoutFiles.dance_styles : [],
+    group_size: typeof dataWithoutFiles.group_size === 'number' ? dataWithoutFiles.group_size : 4
+  };
+  
+  console.log('🧹 Données nettoyées (sans fichiers):', cleanedData);
+  return cleanedData;
+};
 
+export const teamService = {
+  // ✅ FONCTION CREATETEAM CORRIGÉE AVEC GESTION DES FICHIERS
   async createTeam(teamData: any): Promise<ServiceResponse<PerformanceTeam>> {
     try {
+      console.log('🎯 Début createTeam avec données:', teamData);
+      
+      // ✅ Extraire les fichiers AVANT le nettoyage
+      const musicFile = teamData.music_file;
+      const teamPhoto = teamData.team_photo;
+      
+      // ✅ Nettoyer et valider les données (SANS les fichiers)
+      const cleanedData = validateAndCleanTeamData(teamData);
+      
+      // ✅ Vérifications préalables
+      if (!cleanedData.team_name) {
+        return { success: false, message: 'Le nom de l\'équipe est requis' };
+      }
+      
+      if (!cleanedData.director_name) {
+        return { success: false, message: 'Le nom du directeur est requis' };
+      }
+      
+      if (!cleanedData.director_email) {
+        return { success: false, message: 'L\'email du directeur est requis' };
+      }
+      
+      if (!cleanedData.city) {
+        return { success: false, message: 'La ville est requise' };
+      }
+      
+      // ✅ Préparer les données pour l'insertion (SANS les fichiers)
+      const insertData = {
+        ...cleanedData,
+        status: 'draft',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('📤 Données à insérer (sans fichiers):', insertData);
+      
+      // ✅ Insertion avec gestion d'erreur détaillée
       const { data, error } = await supabase
         .from('performance_teams')
-        .insert([{
-          ...teamData,
-          status: 'draft',
-          created_at: new Date().toISOString()
-        }])
+        .insert([insertData])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur Supabase createTeam:', error);
+        console.error('❌ Code erreur:', error.code);
+        console.error('❌ Message erreur:', error.message);
+        console.error('❌ Détails erreur:', error.details);
+        console.error('❌ Hint erreur:', error.hint);
+        
+        // Messages d'erreur spécifiques
+        if (error.code === '23505') {
+          return { success: false, message: 'Une équipe avec ce nom existe déjà' };
+        }
+        
+        if (error.code === '23502') {
+          return { success: false, message: 'Champ obligatoire manquant: ' + (error.details || 'non spécifié') };
+        }
+        
+        if (error.code === '23514') {
+          return { success: false, message: 'Valeur invalide: ' + (error.details || 'vérifiez les données') };
+        }
+        
+        throw error;
+      }
 
+      console.log('✅ Équipe créée avec succès:', data);
+      
+      // ✅ Upload des fichiers APRÈS la création de l'équipe
+      if ((musicFile || teamPhoto) && data?.id) {
+        console.log('📁 Upload des fichiers pour l\'équipe:', data.id);
+        
+        try {
+          const uploadResult = await this.uploadTeamFiles(data.id, {
+            music_file: musicFile,
+            team_photo: teamPhoto
+          });
+          
+          if (uploadResult.success && uploadResult.data) {
+            console.log('✅ Fichiers uploadés avec succès');
+            return { success: true, data: uploadResult.data };
+          } else {
+            console.log('⚠️ Équipe créée mais erreur upload fichiers:', uploadResult.message);
+            // Retourner l'équipe même si l'upload a échoué
+            return { success: true, data };
+          }
+        } catch (uploadError) {
+          console.error('❌ Erreur upload fichiers:', uploadError);
+          // Retourner l'équipe même si l'upload a échoué
+          return { success: true, data };
+        }
+      }
+      
       return { success: true, data };
+      
     } catch (error) {
-      console.error('❌ Erreur createTeam:', error);
+      console.error('❌ Exception createTeam:', error);
+      const errorMessage = getErrorMessage(error);
+      console.error('❌ Message d\'erreur final:', errorMessage);
+      
       return { 
         success: false, 
-        message: getErrorMessage(error)
+        message: errorMessage || 'Erreur lors de la création de l\'équipe'
       };
     }
   },
 
   async updateTeam(teamId: string, updateData: any): Promise<ServiceResponse<PerformanceTeam>> {
     try {
+      const cleanedData = validateAndCleanTeamData(updateData);
+      
       const { data, error } = await supabase
         .from('performance_teams')
         .update({
-          ...updateData,
+          ...cleanedData,
           updated_at: new Date().toISOString()
         })
         .eq('id', teamId)
@@ -162,7 +313,7 @@ export const teamService = {
     }
   },
 
-  // ✅ NOUVELLE FONCTION: markAsCompleted avec sauvegarde backend
+  // ✅ FONCTION markAsCompleted AJOUTÉE
   async markAsCompleted(teamId: string): Promise<ServiceResponse<PerformanceTeam>> {
     try {
       const { data, error } = await supabase
@@ -176,73 +327,132 @@ export const teamService = {
         .select()
         .single();
 
-      if (error) {
-        console.error('Erreur marking team as completed:', error);
-        return { success: false, message: error.message };
-      }
+      if (error) throw error;
 
       return { success: true, data };
     } catch (error) {
-      console.error('Erreur marking team as completed:', error);
+      console.error('❌ Erreur markAsCompleted:', error);
       return { 
         success: false, 
-        message: error instanceof Error ? error.message : 'Erreur inconnue'
+        message: getErrorMessage(error)
       };
     }
   },
 
+  // ✅ FONCTION uploadTeamFiles CORRIGÉE AVEC LES BONS NOMS DE BUCKETS
   async uploadTeamFiles(teamId: string, files: { music_file?: File; team_photo?: File }): Promise<ServiceResponse<PerformanceTeam>> {
     try {
       let updateData: any = {};
 
-      // Upload musique
+      // ✅ Upload musique dans le bucket 'team-files' (AVEC TIRET)
       if (files.music_file) {
-        const musicFileName = `${teamId}-music-${Date.now()}.${files.music_file.name.split('.').pop()}`;
+        console.log('🎵 Upload fichier musique:', files.music_file.name);
+        console.log('🎯 Utilisation du bucket: team-files');
+        
+        // ✅ RÉCUPÉRER LES INFOS DE L'ÉQUIPE POUR LE RENOMMAGE
+        const { data: teamInfo, error: teamError } = await supabase
+          .from('performance_teams')
+          .select('team_name, studio_name')
+          .eq('id', teamId)
+          .single();
+
+        if (teamError) {
+          console.warn('⚠️ Impossible de récupérer les infos équipe pour renommage:', teamError);
+        }
+
+        // ✅ GÉNÉRER UN NOM DE FICHIER INTELLIGENT : NomStudio-NomEquipe
+        const cleanString = (str: string) => 
+          str.replace(/[^a-zA-Z0-9\s]/g, '') // Supprimer caractères spéciaux
+             .replace(/\s+/g, '') // Supprimer espaces
+             .substring(0, 20); // Limiter longueur
+
+        const studioName = teamInfo?.studio_name ? cleanString(teamInfo.studio_name) : 'Studio';
+        const teamName = teamInfo?.team_name ? cleanString(teamInfo.team_name) : 'Team';
+        const extension = files.music_file.name.split('.').pop()?.toLowerCase() || 'mp3';
+        
+        // Nom de fichier final : Studio-Team.extension
+        const intelligentFileName = `${studioName}-${teamName}.${extension}`;
+        const storageFileName = `${teamId}-music-${Date.now()}.${extension}`; // Nom unique pour le storage
+        
+        console.log('🎯 Nom de fichier intelligent généré:', intelligentFileName);
         
         const { data: musicData, error: musicError } = await supabase.storage
-          .from('team-music')
-          .upload(musicFileName, files.music_file);
+          .from('team-files')
+          .upload(storageFileName, files.music_file, {
+            cacheControl: '3600',
+            upsert: true
+          });
 
-        if (musicError) throw musicError;
+        if (musicError) {
+          console.error('❌ Erreur upload musique:', musicError);
+          console.error('❌ Bucket testé: team-files');
+          throw musicError;
+        }
 
         const { data: musicUrl } = supabase.storage
-          .from('team-music')
-          .getPublicUrl(musicFileName);
+          .from('team-files')
+          .getPublicUrl(storageFileName);
 
+        // ✅ SAUVEGARDER LE NOM INTELLIGENT ET LE TITRE GÉNÉRÉ
         updateData.music_file_url = musicUrl.publicUrl;
-        updateData.music_file_name = files.music_file.name;
+        updateData.music_file_name = intelligentFileName; // ✅ NomStudio-NomEquipe.mp3
+        updateData.song_title = intelligentFileName.replace(/\.[^/.]+$/, ''); // ✅ Nom sans extension pour song_title
         
-        // Générer song_title depuis le nom de fichier
-        const baseName = files.music_file.name.replace(/\.[^/.]+$/, '');
-        updateData.song_title = baseName;
+        console.log('✅ Musique uploadée:', musicUrl.publicUrl);
+        console.log('✅ Nom de fichier sauvé:', intelligentFileName);
       }
 
-      // Upload photo
+      // ✅ Upload photo dans le bucket 'team-files' (MÊME BUCKET QUE LA MUSIQUE)
       if (files.team_photo) {
+        console.log('📸 Upload photo équipe:', files.team_photo.name);
+        console.log('🎯 Utilisation du bucket: team-files');
+        
         const photoFileName = `${teamId}-photo-${Date.now()}.${files.team_photo.name.split('.').pop()}`;
         
         const { data: photoData, error: photoError } = await supabase.storage
-          .from('team-photos')
-          .upload(photoFileName, files.team_photo);
+          .from('team-files') // ✅ CHANGÉ: team-files au lieu de profile-images
+          .upload(photoFileName, files.team_photo, {
+            cacheControl: '3600',
+            upsert: true
+          });
 
-        if (photoError) throw photoError;
+        if (photoError) {
+          console.error('❌ Erreur upload photo:', photoError);
+          console.error('❌ Bucket testé: team-files');
+          throw photoError;
+        }
 
         const { data: photoUrl } = supabase.storage
-          .from('team-photos')
+          .from('team-files') // ✅ CHANGÉ: team-files au lieu de profile-images
           .getPublicUrl(photoFileName);
 
         updateData.team_photo_url = photoUrl.publicUrl;
+        
+        console.log('✅ Photo uploadée:', photoUrl.publicUrl);
       }
 
-      // Mettre à jour l'équipe
+      // Mettre à jour l'équipe avec les URLs des fichiers
+      if (Object.keys(updateData).length > 0) {
+        const { data, error } = await supabase
+          .from('performance_teams')
+          .update({
+            ...updateData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', teamId)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        return { success: true, data };
+      }
+
+      // Si aucun fichier à uploader, retourner l'équipe existante
       const { data, error } = await supabase
         .from('performance_teams')
-        .update({
-          ...updateData,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', teamId)
         .select()
+        .eq('id', teamId)
         .single();
 
       if (error) throw error;
@@ -257,7 +467,7 @@ export const teamService = {
     }
   },
 
-  // ⭐ FONCTION CORRIGÉE: getTeams (utilisée par useTeams)
+  // ⭐ FONCTION getTeams (utilisée par useTeams)
   async getTeams(eventId: string): Promise<ServiceResponse<PerformanceTeam[]>> {
     try {
       const { data, error } = await supabase
