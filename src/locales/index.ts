@@ -1,5 +1,4 @@
 // src/locales/index.ts - Export helper pour les traductions
-
 export {
   translations,
   useTranslation,

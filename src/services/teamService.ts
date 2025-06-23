@@ -1,361 +1,562 @@
-// src/services/teamService.ts - Version complète avec upload fonctionnel
-import { supabase } from '../lib/supabase'
-import { PerformanceTeam } from '../types/PerformanceTeam'
-import type { User } from '../lib/supabase'
+// src/services/teamService.ts - VERSION COMPLÈTE AVEC markAsCompleted AJOUTÉ
+import { supabase } from '../lib/supabase';
+import { PerformanceTeam, TechRehearsalRating } from '../types/PerformanceTeam';
+
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return String(error);
+};
+
+export interface ServiceResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+}
 
 export const teamService = {
-  // Récupérer toutes les équipes d'un événement
-  async getTeams(eventId: string) {
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false })
+  // =====================
+  // FONCTIONS EXISTANTES
+  // =====================
 
-    return { data, error }
-  },
-
-  // Récupérer une équipe spécifique
-  async getTeam(teamId: string) {
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .select('*')
-      .eq('id', teamId)
-      .single()
-
-    return { data, error }
-  },
-
-  // Créer une nouvelle équipe
-  async createTeam(teamData: any) {
-    console.log('🚀 Création équipe Supabase:', teamData);
-    
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .insert(teamData)
-      .select()
-      .single()
-
-    return { data, error }
-  },
-
-  // Mettre à jour une équipe
-  async updateTeam(teamId: string, updates: any) {
-    console.log('🔄 Mise à jour équipe:', teamId, updates);
-    
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .update(updates)
-      .eq('id', teamId)
-      .select()
-      .single()
-
-    return { data, error }
-  },
-
-  // Changer le statut d'une équipe
-  async updateStatus(teamId: string, status: 'draft' | 'submitted' | 'approved' | 'rejected', notes?: string) {
-    const updates: any = { 
-      status,
-      updated_at: new Date().toISOString()
-    };
-
-    // Ajouter des timestamps selon le statut
-    if (status === 'submitted') {
-      updates.submitted_at = new Date().toISOString();
-    } else if (status === 'approved') {
-      updates.approved_at = new Date().toISOString();
-    } else if (status === 'rejected') {
-      updates.rejected_at = new Date().toISOString();
-      if (notes) updates.rejection_reason = notes;
-    }
-
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .update(updates)
-      .eq('id', teamId)
-      .select()
-      .single()
-
-    return { data, error }
-  },
-
-  // Upload d'un fichier musical - VERSION AVEC UTILISATEUR EN PARAMÈTRE
-  async uploadMusicFile(teamId: string, file: File, currentUser?: User) {
+  async createTeam(teamData: any): Promise<ServiceResponse<PerformanceTeam>> {
     try {
-      console.log('🎵 Upload fichier musical:', file.name, 'pour équipe', teamId);
-      
-      // Vérifier l'authentification avec l'utilisateur passé en paramètre
-      if (currentUser) {
-        console.log('👤 Utilisateur depuis paramètre:', currentUser.id, currentUser.email);
-      } else {
-        // Fallback : essayer de récupérer depuis Supabase
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
-        
-        console.log('👤 Utilisateur depuis session:', user?.id, user?.email);
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .insert([{
+          ...teamData,
+          status: 'draft',
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
 
-        if (!user) {
-          console.error('❌ Aucun utilisateur connecté !');
-          return { data: null, error: { message: 'Utilisateur non authentifié' } };
-        }
-      }
-      
-      // Générer un nom de fichier unique
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${teamId}_${Date.now()}.${fileExt}`;
-      const filePath = fileName; // Chemin simple sans dossier
+      if (error) throw error;
 
-      console.log('📁 Chemin upload:', filePath);
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur createTeam:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
 
-      // Upload vers Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('team-files')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true  // Permettre l'écrasement
-        });
-
-      if (uploadError) {
-        console.error('❌ Erreur upload:', uploadError);
-        
-        // Essayer avec un nom encore plus simple
-        const simplePath = `${teamId}_music.${fileExt}`;
-        console.log('🔄 Tentative avec chemin simple:', simplePath);
-        
-        const { data: simpleUpload, error: simpleError } = await supabase.storage
-          .from('team-files')
-          .upload(simplePath, file, {
-            upsert: true
-          });
-          
-        if (simpleError) {
-          console.error('❌ Erreur upload simple:', simpleError);
-          
-          // Fallback: sauvegarder juste le titre sans upload
-          const { data: teamData, error: updateError } = await supabase
-            .from('performance_teams')
-            .update({
-              song_title: file.name.replace(/\.[^/.]+$/, ""),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', teamId)
-            .select()
-            .single();
-            
-          return { 
-            data: { 
-              url: null, 
-              team: teamData, 
-              warning: 'Upload échoué - titre sauvegardé' 
-            }, 
-            error: simpleError 
-          };
-        }
-        
-        // Upload simple réussi
-        const { data: { publicUrl } } = supabase.storage
-          .from('team-files')
-          .getPublicUrl(simplePath);
-          
-        console.log('✅ Fichier uploadé (chemin simple):', publicUrl);
-
-        const { data: teamData, error: updateError } = await supabase
-          .from('performance_teams')
-          .update({
-            music_file_url: publicUrl,
-            song_title: file.name.replace(/\.[^/.]+$/, ""),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', teamId)
-          .select()
-          .single();
-
-        return { data: { url: publicUrl, team: teamData }, error: updateError };
-      }
-
-      // Upload original réussi
-      const { data: { publicUrl } } = supabase.storage
-        .from('team-files')
-        .getPublicUrl(filePath);
-
-      console.log('✅ Fichier uploadé:', publicUrl);
-
-      // Mettre à jour l'équipe avec l'URL du fichier
-      const { data: teamData, error: updateError } = await supabase
+  async updateTeam(teamId: string, updateData: any): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      const { data, error } = await supabase
         .from('performance_teams')
         .update({
-          music_file_url: publicUrl,
-          song_title: file.name.replace(/\.[^/.]+$/, ""),
+          ...updateData,
           updated_at: new Date().toISOString()
         })
         .eq('id', teamId)
         .select()
         .single();
 
-      return { data: { url: publicUrl, team: teamData }, error: updateError };
+      if (error) throw error;
 
+      return { success: true, data };
     } catch (error) {
-      console.error('❌ Erreur catch upload:', error);
-      
-      // En cas d'erreur totale, sauvegarder au moins le titre
-      try {
-        const { data: teamData, error: updateError } = await supabase
-          .from('performance_teams')
-          .update({
-            song_title: file.name.replace(/\.[^/.]+$/, ""),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', teamId)
-          .select()
-          .single();
-          
-        return { 
-          data: { 
-            url: null, 
-            team: teamData, 
-            warning: 'Erreur upload - titre sauvegardé' 
-          }, 
-          error 
-        };
-      } catch {
-        return { data: null, error };
-      }
+      console.error('❌ Erreur updateTeam:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
     }
   },
 
-  // Supprimer une équipe (soft delete)
-  async deleteTeam(teamId: string) {
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .update({ 
-        status: 'rejected',
-        deleted_at: new Date().toISOString()
-      })
-      .eq('id', teamId)
-      .select()
-      .single()
-
-    return { data, error }
-  },
-
-  // Récupérer les statistiques des équipes
-  async getTeamStats(eventId: string) {
-    const { data, error } = await supabase
-      .from('performance_teams')
-      .select('status, group_size')
-      .eq('event_id', eventId);
-
-    if (error) return { data: null, error };
-
-    const stats = {
-      total: data.length,
-      draft: data.filter(t => t.status === 'draft').length,
-      submitted: data.filter(t => t.status === 'submitted').length,
-      approved: data.filter(t => t.status === 'approved').length,
-      rejected: data.filter(t => t.status === 'rejected').length,
-      totalParticipants: data.reduce((sum, team) => sum + (team.group_size || 0), 0)
-    };
-
-    return { data: stats, error: null };
-  },
-
-  // Supprimer un fichier musical
-  async deleteMusicFile(teamId: string, fileUrl: string) {
+  async deleteTeam(teamId: string): Promise<ServiceResponse<void>> {
     try {
-      // Extraire le nom du fichier depuis l'URL
-      const urlParts = fileUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1];
-
-      console.log('🗑️ Suppression fichier:', fileName);
-
-      // Supprimer du storage
-      const { error: deleteError } = await supabase.storage
-        .from('team-files')
-        .remove([fileName]);
-
-      if (deleteError) {
-        console.error('❌ Erreur suppression storage:', deleteError);
-      }
-
-      // Mettre à jour l'équipe pour supprimer l'URL
-      const { data: teamData, error: updateError } = await supabase
+      const { error } = await supabase
         .from('performance_teams')
-        .update({
-          music_file_url: null,
-          song_title: null,
+        .delete()
+        .eq('id', teamId);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erreur deleteTeam:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  async submitTeam(teamId: string): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({ 
+          status: 'submitted',
+          submitted_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', teamId)
         .select()
         .single();
 
-      return { data: teamData, error: updateError };
+      if (error) throw error;
 
+      return { success: true, data };
     } catch (error) {
-      console.error('❌ Erreur catch suppression:', error);
-      return { data: null, error };
+      console.error('❌ Erreur submitTeam:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
     }
   },
 
-  // Obtenir l'URL publique d'un fichier
-  getPublicUrl(fileName: string) {
-    const { data: { publicUrl } } = supabase.storage
-      .from('team-files')
-      .getPublicUrl(fileName);
-    
-    return publicUrl;
-  },
-
-  // Vérifier si une équipe peut encore être modifiée
-  canEditTeam(team: PerformanceTeam): boolean {
-    if (team.status === 'approved' || team.status === 'rejected') {
-      return false;
-    }
-
-    if (team.can_edit_until) {
-      const editDeadline = new Date(team.can_edit_until);
-      const now = new Date();
-      return now < editDeadline;
-    }
-
-    return true;
-  },
-
-  // Dupliquer une équipe (pour créer une nouvelle équipe basée sur une existante)
-  async duplicateTeam(originalTeamId: string, newTeamName: string) {
+  async approveTeam(teamId: string): Promise<ServiceResponse<PerformanceTeam>> {
     try {
-      // Récupérer l'équipe originale
-      const { data: originalTeam, error: fetchError } = await this.getTeam(originalTeamId);
-      
-      if (fetchError || !originalTeam) {
-        return { data: null, error: fetchError || { message: 'Équipe non trouvée' } };
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({ 
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur approveTeam:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  async rejectTeam(teamId: string, reason?: string): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({ 
+          status: 'rejected',
+          rejection_reason: reason,
+          rejected_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur rejectTeam:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // ✅ NOUVELLE FONCTION: markAsCompleted avec sauvegarde backend
+  async markAsCompleted(teamId: string): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({ 
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erreur marking team as completed:', error);
+        return { success: false, message: error.message };
       }
 
-      // Créer les données pour la nouvelle équipe
-      const newTeamData = {
-        ...originalTeam,
-        id: undefined, // Laisser Supabase générer un nouvel ID
-        team_name: newTeamName,
-        status: 'draft',
-        created_at: undefined,
-        updated_at: undefined,
-        submitted_at: null,
-        approved_at: null,
-        rejected_at: null,
-        music_file_url: null, // Ne pas copier le fichier musical
-        song_title: originalTeam.song_title, // Mais garder le titre
-        performance_video_url: null // Ne pas copier la vidéo non plus
+      return { success: true, data };
+    } catch (error) {
+      console.error('Erreur marking team as completed:', error);
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Erreur inconnue'
+      };
+    }
+  },
+
+  async uploadTeamFiles(teamId: string, files: { music_file?: File; team_photo?: File }): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      let updateData: any = {};
+
+      // Upload musique
+      if (files.music_file) {
+        const musicFileName = `${teamId}-music-${Date.now()}.${files.music_file.name.split('.').pop()}`;
+        
+        const { data: musicData, error: musicError } = await supabase.storage
+          .from('team-music')
+          .upload(musicFileName, files.music_file);
+
+        if (musicError) throw musicError;
+
+        const { data: musicUrl } = supabase.storage
+          .from('team-music')
+          .getPublicUrl(musicFileName);
+
+        updateData.music_file_url = musicUrl.publicUrl;
+        updateData.music_file_name = files.music_file.name;
+        
+        // Générer song_title depuis le nom de fichier
+        const baseName = files.music_file.name.replace(/\.[^/.]+$/, '');
+        updateData.song_title = baseName;
+      }
+
+      // Upload photo
+      if (files.team_photo) {
+        const photoFileName = `${teamId}-photo-${Date.now()}.${files.team_photo.name.split('.').pop()}`;
+        
+        const { data: photoData, error: photoError } = await supabase.storage
+          .from('team-photos')
+          .upload(photoFileName, files.team_photo);
+
+        if (photoError) throw photoError;
+
+        const { data: photoUrl } = supabase.storage
+          .from('team-photos')
+          .getPublicUrl(photoFileName);
+
+        updateData.team_photo_url = photoUrl.publicUrl;
+      }
+
+      // Mettre à jour l'équipe
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({
+          ...updateData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur uploadTeamFiles:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // ⭐ FONCTION CORRIGÉE: getTeams (utilisée par useTeams)
+  async getTeams(eventId: string): Promise<ServiceResponse<PerformanceTeam[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('performance_order', { ascending: true, nullsFirst: false });
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur getTeams:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  async getTeamsByEvent(eventId: string): Promise<ServiceResponse<PerformanceTeam[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('performance_order', { ascending: true, nullsFirst: false });
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur getTeamsByEvent:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // ⭐ NOUVELLES FONCTIONS POUR NOTATION TECH REHEARSAL
+
+  async updateTechRehearsalRating(teamId: string, rating: TechRehearsalRating): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({ 
+          tech_rehearsal_rating: rating,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur updateTechRehearsalRating:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // Export avec ratings inclus
+  async exportTeamsWithRatings(eventId: string): Promise<ServiceResponse<any[]>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .select(`
+          *,
+          tech_rehearsal_rating
+        `)
+        .eq('event_id', eventId)
+        .order('performance_order', { ascending: true, nullsFirst: false });
+
+      if (error) throw error;
+
+      // Formatter pour export CSV/Excel avec types corrects
+      const exportData = data.map((team: any) => ({
+        ...team,
+        // Aplatir les ratings pour l'export
+        rating_1_label: team.tech_rehearsal_rating?.rating_1_label || '',
+        rating_1_score: team.tech_rehearsal_rating?.rating_1 || '',
+        rating_2_label: team.tech_rehearsal_rating?.rating_2_label || '',
+        rating_2_score: team.tech_rehearsal_rating?.rating_2 || '',
+        rating_3_label: team.tech_rehearsal_rating?.rating_3_label || '',
+        rating_3_score: team.tech_rehearsal_rating?.rating_3 || '',
+        rating_comments: team.tech_rehearsal_rating?.comments || '',
+        rating_average: team.tech_rehearsal_rating ? 
+          ([team.tech_rehearsal_rating.rating_1, team.tech_rehearsal_rating.rating_2, team.tech_rehearsal_rating.rating_3]
+            .filter((r: number) => r > 0)
+            .reduce((sum: number, r: number) => sum + r, 0) / 
+           [team.tech_rehearsal_rating.rating_1, team.tech_rehearsal_rating.rating_2, team.tech_rehearsal_rating.rating_3]
+            .filter((r: number) => r > 0).length) || 0 : 0,
+        rated_by: team.tech_rehearsal_rating?.rated_by || '',
+        rated_at: team.tech_rehearsal_rating?.rated_at || ''
+      }));
+
+      return { success: true, data: exportData };
+    } catch (error) {
+      console.error('❌ Erreur exportTeamsWithRatings:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // Obtenir les équipes avec ratings pour dashboard
+  async getTeamsWithRatings(eventId: string): Promise<ServiceResponse<{ data: PerformanceTeam[]; stats: any }>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .select(`
+          *,
+          tech_rehearsal_rating
+        `)
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Calculer statistiques des ratings avec types corrects
+      const ratedTeams = data.filter((team: any) => team.tech_rehearsal_rating);
+      const averageRatings = ratedTeams.map((team: any) => {
+        const rating = team.tech_rehearsal_rating;
+        const scores = [rating.rating_1, rating.rating_2, rating.rating_3].filter((r: number) => r > 0);
+        return scores.length > 0 ? scores.reduce((sum: number, r: number) => sum + r, 0) / scores.length : 0;
+      });
+
+      const stats = {
+        totalTeams: data.length,
+        ratedTeams: ratedTeams.length,
+        unratedTeams: data.length - ratedTeams.length,
+        averageOverallRating: averageRatings.length > 0 
+          ? averageRatings.reduce((sum: number, avg: number) => sum + avg, 0) / averageRatings.length 
+          : 0
       };
 
-      // Créer la nouvelle équipe
-      const { data, error } = await this.createTeam(newTeamData);
-      
-      return { data, error };
-
+      return { success: true, data: { data, stats } };
     } catch (error) {
-      console.error('❌ Erreur duplication équipe:', error);
-      return { data: null, error };
+      console.error('❌ Erreur getTeamsWithRatings:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
     }
+  },
+
+  // Supprimer une notation
+  async deleteTechRehearsalRating(teamId: string): Promise<ServiceResponse<PerformanceTeam>> {
+    try {
+      const { data, error } = await supabase
+        .from('performance_teams')
+        .update({ 
+          tech_rehearsal_rating: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', teamId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('❌ Erreur deleteTechRehearsalRating:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // Générer ordre de performance basé sur les ratings (future feature)
+  async generatePerformanceOrder(eventId: string, algorithm: 'rating' | 'style' | 'mixed' = 'mixed'): Promise<ServiceResponse<PerformanceTeam[]>> {
+    try {
+      // Récupérer toutes les équipes approuvées avec ratings
+      const { data: teams, error } = await supabase
+        .from('performance_teams')
+        .select('*')
+        .eq('event_id', eventId)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      // Algorithme de tri avec types corrects
+      let sortedTeams: any[];
+      
+      switch (algorithm) {
+        case 'rating':
+          // Trier par note moyenne (meilleures en dernier pour finir en beauté)
+          sortedTeams = teams.sort((a: any, b: any) => {
+            const avgA = this.calculateAverageRating(a.tech_rehearsal_rating);
+            const avgB = this.calculateAverageRating(b.tech_rehearsal_rating);
+            return avgA - avgB;
+          });
+          break;
+          
+        case 'style':
+          // Mélanger les styles pour variété
+          sortedTeams = this.mixByStyles(teams);
+          break;
+          
+        case 'mixed':
+        default:
+          // Combinaison: style + rating + taille groupe
+          sortedTeams = this.advancedMixAlgorithm(teams);
+          break;
+      }
+
+      // Assigner l'ordre de performance avec types corrects
+      const updates = sortedTeams.map((team: any, index: number) => ({
+        id: team.id,
+        performance_order: index + 1
+      }));
+
+      // Mettre à jour en batch
+      const { error: updateError } = await supabase
+        .from('performance_teams')
+        .upsert(updates.map((update: any) => ({
+          id: update.id,
+          performance_order: update.performance_order,
+          updated_at: new Date().toISOString()
+        })));
+
+      if (updateError) throw updateError;
+
+      return { success: true, data: sortedTeams };
+    } catch (error) {
+      console.error('❌ Erreur generatePerformanceOrder:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // Fonctions utilitaires pour l'algorithme d'ordre avec types corrects
+  calculateAverageRating(rating: any): number {
+    if (!rating) return 0;
+    const scores = [rating.rating_1, rating.rating_2, rating.rating_3].filter((r: number) => r > 0);
+    return scores.length > 0 ? scores.reduce((sum: number, r: number) => sum + r, 0) / scores.length : 0;
+  },
+
+  mixByStyles(teams: any[]): any[] {
+    // Grouper par style principal
+    const styleGroups: { [key: string]: any[] } = {};
+    teams.forEach((team: any) => {
+      const mainStyle = team.dance_styles?.[0] || 'other';
+      if (!styleGroups[mainStyle]) styleGroups[mainStyle] = [];
+      styleGroups[mainStyle].push(team);
+    });
+
+    // Mélanger en alternant les styles
+    const result: any[] = [];
+    const styleKeys = Object.keys(styleGroups);
+    let maxLength = Math.max(...Object.values(styleGroups).map((arr: any[]) => arr.length));
+
+    for (let i = 0; i < maxLength; i++) {
+      styleKeys.forEach((style: string) => {
+        if (styleGroups[style][i]) {
+          result.push(styleGroups[style][i]);
+        }
+      });
+    }
+
+    return result;
+  },
+
+  advancedMixAlgorithm(teams: any[]): any[] {
+    // Algorithme sophistiqué combinant plusieurs facteurs
+    return teams.sort((a: any, b: any) => {
+      // Facteur 1: Note moyenne (poids 40%)
+      const ratingA = this.calculateAverageRating(a.tech_rehearsal_rating);
+      const ratingB = this.calculateAverageRating(b.tech_rehearsal_rating);
+      const ratingScore = (ratingA - ratingB) * 0.4;
+
+      // Facteur 2: Taille du groupe (poids 30%) - plus grands vers la fin
+      const sizeScore = (a.group_size - b.group_size) * 0.3;
+
+      // Facteur 3: Variété de style (poids 30%) - éviter trop de même style consécutifs
+      const styleScore = this.calculateStyleVarietyScore(a, b, teams) * 0.3;
+
+      return ratingScore + sizeScore + styleScore;
+    });
+  },
+
+  calculateStyleVarietyScore(teamA: any, teamB: any, allTeams: any[]): number {
+    // Logique simplifiée pour la variété des styles
+    // Dans une vraie implémentation, on analyserait la position dans la séquence
+    const styleA = teamA.dance_styles?.[0] || '';
+    const styleB = teamB.dance_styles?.[0] || '';
+    
+    // Favoriser l'alternance des styles
+    return styleA === styleB ? -1 : 1;
   }
-}
+};
