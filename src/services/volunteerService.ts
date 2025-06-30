@@ -179,7 +179,7 @@ export const volunteerService = {
     // Filtrer les inscriptions non-annulées pour le comptage
     const processedData = data?.map(shift => ({
       ...shift,
-      volunteer_signups: shift.volunteer_signups?.filter(signup => signup.status !== 'cancelled') || []
+      volunteer_signups: shift.volunteer_signups?.filter((signup: any) => signup.status !== 'cancelled') || []
     }))
 
     return { data: processedData, error }
