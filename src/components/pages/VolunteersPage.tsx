@@ -888,7 +888,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   
         if (error) {
           console.error('❌ Error signing up:', error);
-          alert(`Error during signup: ${error.message}`);
+          alert(`Error during signup: ${getErrorMessage(error)}`);
           return;
         }
   
