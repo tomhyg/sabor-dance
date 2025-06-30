@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Copy, Plus, CheckCircle, Calendar, Clock, X, QrCode, Scan, Check, AlertCircle, UserCheck, Bell, BellRing, List, Grid, Download, BarChart3, Edit, FileSpreadsheet, FileText } from 'lucide-react';
+import { Users, Copy, Plus, CheckCircle, Calendar, Clock, X, QrCode, Scan, Check, AlertCircle, UserCheck, Bell, BellRing, List, Grid, Download, BarChart3, Edit, FileSpreadsheet, FileText, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import CalendarView from './CalendarView';
 import GridView from './GridView';
 import VolunteerDashboard from './VolunteerDashboard';
+import ShiftDetailsModal from '../volunteers/ShiftDetailsModal';
 import { exportVolunteerShifts, exportVolunteerSignups, quickExport, ExportFormat } from '../../utils/exportUtils';
-import { volunteerService } from '../../services/volunteerService';
+import { volunteerService, ShiftWithVolunteers } from '../../services/volunteerService';
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -61,7 +62,7 @@ interface User {
 interface VolunteersPageProps {
   t: any;
   currentUser: User | null;
-  language: 'fr' | 'en' | 'es'; // Ajout du paramètre language
+  language: 'fr' | 'en' | 'es';
   volunteerShifts: VolunteerShift[];
   setVolunteerShifts: React.Dispatch<React.SetStateAction<VolunteerShift[]>>;
   volunteerSignups: VolunteerSignup[];
@@ -70,10 +71,18 @@ interface VolunteersPageProps {
   setEvents: React.Dispatch<React.SetStateAction<DanceEvent[]>>;
 }
 
+// 🎯 NOUVEAUTÉ: Interface pour les conflits d'horaires
+interface OverlapConflict {
+  conflictingShift: VolunteerShift;
+  conflictingSignup: VolunteerSignup;
+  overlapType: 'complete' | 'partial';
+  overlapDetails: string;
+}
+
 const VolunteersPage: React.FC<VolunteersPageProps> = ({
   t,
   currentUser,
-  language = 'en', // Valeur par défaut
+  language = 'en',
   volunteerShifts,
   setVolunteerShifts,
   volunteerSignups,
@@ -94,6 +103,15 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   const [sortBy, setSortBy] = useState<'date' | 'missing' | 'none'>('none');
   const [showVolunteerDashboard, setShowVolunteerDashboard] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  
+  // 🎯 NOUVEAUTÉ: États pour la gestion des conflits
+  const [showOverlapModal, setShowOverlapModal] = useState(false);
+  const [overlapConflicts, setOverlapConflicts] = useState<OverlapConflict[]>([]);
+  const [pendingShiftId, setPendingShiftId] = useState<string | null>(null);
+  
+  // 🎯 NOUVEAUTÉ: États pour la visibilité des affectations
+  const [showShiftDetailsModal, setShowShiftDetailsModal] = useState<any>(null);
+  const [shiftsWithAssignments, setShiftsWithAssignments] = useState<ShiftWithVolunteers[]>([]);
   
   // États pour l'édition
   const [showEditShift, setShowEditShift] = useState<VolunteerShift | null>(null);
@@ -177,6 +195,23 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       status: 'Statut:',
       cancel: 'Annuler',
       saveChanges: 'Sauvegarder les Modifications',
+      // 🎯 NOUVEAUTÉ: Messages de conflit d'horaires
+      overlapDetected: 'Conflit d\'horaires détecté !',
+      overlapWarning: 'Ce créneau chevauche avec vos inscriptions existantes :',
+      overlapDetails: 'Détails du conflit :',
+      conflictDate: 'Date :',
+      conflictTime: 'Horaires :',
+      conflictShift: 'Créneau en conflit :',
+      overlapComplete: 'Chevauchement complet',
+      overlapPartial: 'Chevauchement partiel',
+      continueAnyway: 'Continuer quand même',
+      cancelSignup: 'Annuler l\'inscription',
+      // 🎯 NOUVEAUTÉ: Affectations
+      assignedVolunteers: 'bénévoles assignés',
+      viewDetails: 'Voir détails',
+      noVolunteersAssigned: 'Aucun bénévole assigné',
+      urgentNeedsVolunteers: 'Besoin urgent de bénévoles',
+      manageAssignments: 'Gérer les affectations',
       // Rôles
       roleRegistration: 'Accueil',
       roleTechSupport: 'Support technique',
@@ -254,6 +289,23 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       status: 'Status:',
       cancel: 'Cancel',
       saveChanges: 'Save Changes',
+      // 🎯 NOUVEAUTÉ: Messages de conflit d'horaires
+      overlapDetected: 'Schedule conflict detected!',
+      overlapWarning: 'This shift overlaps with your existing signups:',
+      overlapDetails: 'Conflict details:',
+      conflictDate: 'Date:',
+      conflictTime: 'Time:',
+      conflictShift: 'Conflicting shift:',
+      overlapComplete: 'Complete overlap',
+      overlapPartial: 'Partial overlap',
+      continueAnyway: 'Continue anyway',
+      cancelSignup: 'Cancel signup',
+      // 🎯 NOUVEAUTÉ: Affectations
+      assignedVolunteers: 'volunteers assigned',
+      viewDetails: 'View details',
+      noVolunteersAssigned: 'No volunteers assigned',
+      urgentNeedsVolunteers: 'Urgent need for volunteers',
+      manageAssignments: 'Manage assignments',
       // Rôles
       roleRegistration: 'Registration',
       roleTechSupport: 'Tech Support',
@@ -331,6 +383,23 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       status: 'Estado:',
       cancel: 'Cancelar',
       saveChanges: 'Guardar Cambios',
+      // 🎯 NOUVEAUTÉ: Messages de conflit d'horaires
+      overlapDetected: '¡Conflicto de horarios detectado!',
+      overlapWarning: 'Este turno se superpone con tus inscripciones existentes:',
+      overlapDetails: 'Detalles del conflicto:',
+      conflictDate: 'Fecha:',
+      conflictTime: 'Horarios:',
+      conflictShift: 'Turno en conflicto:',
+      overlapComplete: 'Superposición completa',
+      overlapPartial: 'Superposición parcial',
+      continueAnyway: 'Continuar de todos modos',
+      cancelSignup: 'Cancelar inscripción',
+      // 🎯 NOUVEAUTÉ: Affectations
+      assignedVolunteers: 'voluntarios asignados',
+      viewDetails: 'Ver detalles',
+      noVolunteersAssigned: 'Ningún voluntario asignado',
+      urgentNeedsVolunteers: 'Necesidad urgente de voluntarios',
+      manageAssignments: 'Gestionar asignaciones',
       // Rôles
       roleRegistration: 'Registro',
       roleTechSupport: 'Soporte Técnico',
@@ -355,6 +424,127 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   };
 
   const txt = texts[language];
+
+  // 🎯 NOUVEAU: Charger les shifts avec leurs affectations pour les organisateurs
+  useEffect(() => {
+    if ((currentUser?.role === 'organizer' || currentUser?.role === 'admin') && volunteerShifts.length > 0) {
+      loadShiftsWithAssignments();
+    }
+  }, [currentUser, volunteerShifts]);
+
+  const loadShiftsWithAssignments = async () => {
+    try {
+      const { data, error } = await volunteerService.getShiftsWithAssignments('a9d1c983-1456-4007-9aec-b297dd095ff7');
+      
+      if (!error && data) {
+        setShiftsWithAssignments(data);
+      }
+    } catch (error) {
+      console.error('Erreur chargement shifts avec affectations:', error);
+    }
+  };
+
+  // 🎯 NOUVELLE FONCTION: Obtenir les affectations pour un shift
+  const getShiftAssignments = (shiftId: string) => {
+    const shiftWithAssignments = shiftsWithAssignments.find(s => s.id === shiftId);
+    return shiftWithAssignments?.volunteer_signups?.filter(signup => signup.status !== 'cancelled') || [];
+  };
+
+  // 🎯 NOUVELLE FONCTION: Obtenir les noms des bénévoles assignés
+  const getAssignedVolunteerNames = (shiftId: string): string[] => {
+    const assignments = getShiftAssignments(shiftId);
+    return assignments.map(assignment => assignment.volunteer?.full_name || 'Nom inconnu');
+  };
+
+  // 🎯 NOUVELLE FONCTION: Calculer le niveau d'urgence d'un shift
+  const getShiftUrgencyLevel = (shift: VolunteerShift) => {
+    const fillRate = shift.current_volunteers / shift.max_volunteers;
+    
+    if (fillRate >= 1) return { level: 'complete', color: 'bg-green-500/20 text-green-300', label: 'Complet' };
+    if (fillRate >= 0.75) return { level: 'good', color: 'bg-lime-500/20 text-lime-300', label: 'Bien rempli' };
+    if (fillRate >= 0.5) return { level: 'medium', color: 'bg-yellow-500/20 text-yellow-300', label: 'À surveiller' };
+    if (fillRate >= 0.25) return { level: 'urgent', color: 'bg-orange-500/20 text-orange-300', label: 'Urgent' };
+    return { level: 'critical', color: 'bg-red-500/20 text-red-300', label: 'Critique' };
+  };
+
+  // 🎯 NOUVEAU: Gestionnaire d'actions sur les bénévoles
+  const handleVolunteerAction = async (action: string, signupId: string) => {
+    // Recharger les données après une action
+    await loadShiftsWithAssignments();
+    
+    // Optionnel : recharger aussi les shifts principaux
+    // Vous pouvez ajouter une fonction de callback ici si nécessaire
+  };
+
+  // 🎯 NOUVEAU: Gestionnaire de mise à jour de shift
+  const handleShiftUpdated = (updatedShift: any) => {
+    setVolunteerShifts(shifts =>
+      shifts.map(shift =>
+        shift.id === updatedShift.id ? { ...shift, ...updatedShift } : shift
+      )
+    );
+    
+    // Recharger les affectations
+    loadShiftsWithAssignments();
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction pour détecter les chevauchements d'horaires
+  const checkForOverlappingShifts = (targetShiftId: string, volunteerId: string): OverlapConflict[] => {
+    const targetShift = volunteerShifts.find(s => s.id === targetShiftId);
+    if (!targetShift) return [];
+
+    // Récupérer les inscriptions actives du bénévole
+    const activeSignups = volunteerSignups.filter(signup => 
+      signup.volunteer_id === volunteerId && 
+      signup.status !== 'cancelled'
+    );
+
+    const conflicts: OverlapConflict[] = [];
+
+    activeSignups.forEach(signup => {
+      const existingShift = volunteerShifts.find(s => s.id === signup.shift_id);
+      if (!existingShift || existingShift.shift_date !== targetShift.shift_date) return;
+
+      // Convertir les heures en minutes pour la comparaison
+      const targetStart = timeToMinutes(targetShift.start_time);
+      const targetEnd = timeToMinutes(targetShift.end_time);
+      const existingStart = timeToMinutes(existingShift.start_time);
+      const existingEnd = timeToMinutes(existingShift.end_time);
+
+      // Vérifier le chevauchement
+      const hasOverlap = targetStart < existingEnd && targetEnd > existingStart;
+
+      if (hasOverlap) {
+        const overlapType = (targetStart >= existingStart && targetEnd <= existingEnd) || 
+                           (existingStart >= targetStart && existingEnd <= targetEnd) 
+                           ? 'complete' : 'partial';
+
+        const overlapDetails = `${Math.max(targetStart, existingStart)} - ${Math.min(targetEnd, existingEnd)} min`;
+
+        conflicts.push({
+          conflictingShift: existingShift,
+          conflictingSignup: signup,
+          overlapType,
+          overlapDetails
+        });
+      }
+    });
+
+    return conflicts;
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction utilitaire pour convertir l'heure en minutes
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction utilitaire pour convertir les minutes en heure
+  const minutesToTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
 
   // Fonction pour ouvrir le dashboard bénévole
   const openVolunteerDashboard = () => {
@@ -633,12 +823,34 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     }
   };
 
+  // 🎯 NOUVEAUTÉ: Fonction modifiée pour gérer les conflits
   const signUpForShift = async (shiftId: string) => {
     if (!currentUser?.id) {
       alert(txt.mustBeLoggedIn);
       return;
     }
-  
+
+    // 🎯 NOUVEAUTÉ: Vérifier les conflits d'horaires AVANT l'inscription
+    if (currentUser.role === 'volunteer') {
+      const conflicts = checkForOverlappingShifts(shiftId, currentUser.id);
+      
+      if (conflicts.length > 0) {
+        console.log('🚨 Conflits détectés:', conflicts);
+        setOverlapConflicts(conflicts);
+        setPendingShiftId(shiftId);
+        setShowOverlapModal(true);
+        return; // Arrêter ici et attendre la décision de l'utilisateur
+      }
+    }
+
+    // 🎯 NOUVEAUTÉ: Si pas de conflit, procéder normalement
+    await proceedWithSignup(shiftId);
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction pour effectuer l'inscription (extraite pour réutilisation)
+  const proceedWithSignup = async (shiftId: string) => {
+    if (!currentUser?.id) return;
+
     try {
       const existingCancelledSignup = volunteerSignups.find(signup => 
         signup.shift_id === shiftId && 
@@ -717,6 +929,23 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       console.error('❌ Error catch:', error);
       alert(`Erreur: ${getErrorMessage(error)}`);
     }
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction pour continuer malgré le conflit
+  const handleContinueAnywaySignup = async () => {
+    if (pendingShiftId) {
+      await proceedWithSignup(pendingShiftId);
+      setShowOverlapModal(false);
+      setOverlapConflicts([]);
+      setPendingShiftId(null);
+    }
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction pour annuler l'inscription en cas de conflit
+  const handleCancelSignupDueToConflict = () => {
+    setShowOverlapModal(false);
+    setOverlapConflicts([]);
+    setPendingShiftId(null);
   };
 
   // Calculer les heures depuis les inscriptions Supabase
@@ -1118,7 +1347,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             t={t}
             currentUser={currentUser}
             volunteerShifts={volunteerShifts}
-            language={language} // ← AJOUTER CETTE LIGNE
+            language={language}
             setVolunteerShifts={setVolunteerShifts}
             volunteerSignups={volunteerSignups}
             setVolunteerSignups={setVolunteerSignups}
@@ -1139,11 +1368,16 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               };
               setVolunteerShifts([...volunteerShifts, newShift]);
             }}
+            onShiftClick={(shift) => {
+              if (currentUser?.role === 'organizer' || currentUser?.role === 'admin') {
+                setShowShiftDetailsModal(shift);
+              }
+            }}
           />
         ) : viewMode === 'grid' ? (
           <GridView
             volunteerShifts={volunteerShifts}
-            language={language} // ← AJOUTER CETTE LIGNE
+            language={language}
             volunteerSignups={volunteerSignups}
             currentUser={currentUser}
             onSignUp={signUpForShift}
@@ -1151,7 +1385,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             onExportGrid={handleExportGrid}
           />
         ) : (
-          // Vue liste existante
+          // Vue liste avec affichage des affectations
           <div className="grid gap-6">
           {(() => {
             let sortedShifts = [...volunteerShifts];
@@ -1185,121 +1419,308 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                 return true;
               })
               .map(shift => {
-            const checkedInCount = volunteerSignups.filter(signup => 
-              signup.shift_id === shift.id && signup.status === 'checked_in'
-            ).length;
-            
-            return (
-              <div key={shift.id} className="group bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8 hover:border-green-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/10">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-4">
-                      <h3 className="text-2xl font-bold text-white group-hover:text-green-100 transition-colors">{shift.title}</h3>
-                      <span className={`px-4 py-2 rounded-full text-sm font-bold ${
-                        shift.status === 'draft' ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30' :
-                        shift.status === 'live' ? (shift.current_volunteers >= shift.max_volunteers ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-green-500/20 text-green-300 border border-green-500/30') :
-                        shift.current_volunteers >= shift.max_volunteers ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
-                        'bg-red-500/20 text-red-300 border border-red-500/30'
-                      }`}>
-                        {shift.status === 'draft' ? txt.draft :
-                         shift.status === 'live' ? (shift.current_volunteers >= shift.max_volunteers ? txt.full : txt.published) :
-                         shift.status === 'cancelled' ? txt.cancelled :
-                         shift.current_volunteers >= shift.max_volunteers ? txt.full : txt.published}
-                      </span>
-                      {shift.check_in_required && (
-                        <span className="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                          {txt.checkInRequired}
-                        </span>
-                      )}
-                      {shift.check_in_required && (
-                        <span className="px-3 py-1 rounded-full text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
-                          <UserCheck size={12} />
-                          {checkedInCount}/{shift.current_volunteers} {txt.present}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-300 mb-6 text-lg leading-relaxed">{shift.description}</p>
-                    
-                    <div className="flex flex-wrap gap-6 text-gray-400">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={20} className="text-green-400" />
-                        <span className="font-medium">{new Date(shift.shift_date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock size={20} className="text-green-400" />
-                        <span className="font-medium">{shift.start_time} - {shift.end_time}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users size={20} className="text-green-400" />
-                        <span className="font-medium">{shift.current_volunteers}/{shift.max_volunteers} {t.volunteers}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="ml-8 flex flex-col gap-3">
-                    {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => changeShiftStatus(shift.id, shift.status === 'draft' ? 'live' : 'draft')}
-                          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
-                            shift.status === 'draft' 
-                              ? 'bg-green-500 text-white hover:bg-green-600 shadow-lg hover:shadow-green-500/25' 
-                              : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-gray-500/25'
-                          }`}
-                        >
-                          {shift.status === 'draft' ? txt.publish : t.draft}
-                        </button>
-                      </div>
-                    )}
-                    
-                    {shift.status === 'live' && currentUser?.role === 'volunteer' ? (
-                      isSignedUpForShift(shift.id) ? (
-                        <button
-                          onClick={() => unsubscribeFromShift(shift.id)}
-                          className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-8 py-3 rounded-xl font-bold hover:from-red-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
-                        >
-                          {txt.unsubscribe}
-                        </button>
-                      ) : (
-                        shift.current_volunteers < shift.max_volunteers && (
-                          <button
-                            onClick={() => signUpForShift(shift.id)}
-                            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
-                          >
-                            {txt.signUp}
-                          </button>
-                        )
-                      )
-                    ) : (shift.current_volunteers >= shift.max_volunteers) ? (
-                      !isSignedUpForShift(shift.id) && (
-                        <div className="bg-gray-600/30 text-gray-400 px-6 py-3 rounded-xl font-bold text-center border border-gray-500/30">
-                          {txt.full}
-                        </div>
-                      )
-                    ) : null}
-                  </div>
-                </div>
+                const checkedInCount = volunteerSignups.filter(signup => 
+                  signup.shift_id === shift.id && signup.status === 'checked_in'
+                ).length;
+                
+                // 🎯 NOUVEAU: Obtenir les données d'affectation pour les organisateurs
+                const assignments = getShiftAssignments(shift.id);
+                const assignedNames = getAssignedVolunteerNames(shift.id);
+                const urgency = getShiftUrgencyLevel(shift);
+                const isUrgent = urgency.level === 'urgent' || urgency.level === 'critical';
+                
+                return (
+                  <div key={shift.id} className={`group bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-3xl p-8 hover:border-green-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-green-500/10 ${isUrgent ? 'ring-2 ring-orange-500/40' : ''}`}>
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4 mb-4">
+                          <h3 className="text-2xl font-bold text-white group-hover:text-green-100 transition-colors">{shift.title}</h3>
+                          <span className={`px-4 py-2 rounded-full text-sm font-bold ${
+                            shift.status === 'draft' ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30' :
+                            shift.status === 'live' ? (shift.current_volunteers >= shift.max_volunteers ? 'bg-green-500/20 text-green-300 border border-green-500/30' : 'bg-green-500/20 text-green-300 border border-green-500/30') :
+                            shift.current_volunteers >= shift.max_volunteers ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                            'bg-red-500/20 text-red-300 border border-red-500/30'
+                          }`}>
+                            {shift.status === 'draft' ? txt.draft :
+                             shift.status === 'live' ? (shift.current_volunteers >= shift.max_volunteers ? txt.full : txt.published) :
+                             shift.status === 'cancelled' ? txt.cancelled :
+                             shift.current_volunteers >= shift.max_volunteers ? txt.full : txt.published}
+                          </span>
 
-                {/* Progress bar */}
-                <div className="bg-gray-700/50 rounded-xl p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm font-medium text-gray-300">{txt.progress}</span>
-                    <span className="text-sm text-gray-400">
-                      {Math.round((shift.current_volunteers / shift.max_volunteers) * 100)}%
-                    </span>
+                          {/* 🎯 NOUVEAU: Badge d'urgence pour organisateurs */}
+                          {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && isUrgent && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${urgency.color} animate-pulse`}>
+                              🚨 {urgency.label}
+                            </span>
+                          )}
+
+                          {shift.check_in_required && (
+                            <span className="px-3 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                              {txt.checkInRequired}
+                            </span>
+                          )}
+                          {shift.check_in_required && (
+                            <span className="px-3 py-1 rounded-full text-xs bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                              <UserCheck size={12} />
+                              {checkedInCount}/{shift.current_volunteers} {txt.present}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-300 mb-6 text-lg leading-relaxed">{shift.description}</p>
+                        
+                        <div className="flex flex-wrap gap-6 text-gray-400 mb-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar size={20} className="text-green-400" />
+                            <span className="font-medium">{new Date(shift.shift_date).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock size={20} className="text-green-400" />
+                            <span className="font-medium">{shift.start_time} - {shift.end_time}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users size={20} className="text-green-400" />
+                            <span className="font-medium">{shift.current_volunteers}/{shift.max_volunteers} {t.volunteers}</span>
+                          </div>
+                        </div>
+
+                        {/* 🎯 NOUVEAU: Affichage des bénévoles assignés pour organisateurs */}
+                        {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && assignedNames.length > 0 && (
+                          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mb-4">
+                            <h4 className="text-blue-300 font-semibold mb-2 flex items-center gap-2">
+                              <Users size={16} />
+                              Bénévoles assignés ({assignedNames.length}/{shift.max_volunteers})
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {assignedNames.slice(0, 3).map((name, index) => (
+                                <span key={index} className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-sm font-medium">
+                                  {name}
+                                </span>
+                              ))}
+                              {assignedNames.length > 3 && (
+                                <span className="bg-gray-500/20 text-gray-300 px-3 py-1 rounded-full text-sm">
+                                  +{assignedNames.length - 3} autres
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Bouton voir détails pour organisateurs */}
+                            <button
+                              onClick={() => setShowShiftDetailsModal(shift)}
+                              className="mt-3 text-blue-400 hover:text-blue-300 text-sm font-semibold flex items-center gap-1 hover:underline"
+                            >
+                              <Eye size={14} />
+                              {txt.viewDetails}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* 🎯 NOUVEAU: Message si aucun bénévole pour organisateurs */}
+                        {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && assignedNames.length === 0 && shift.status === 'live' && (
+                          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4">
+                            <h4 className="text-red-300 font-semibold mb-2 flex items-center gap-2">
+                              <AlertTriangle size={16} />
+                              {txt.noVolunteersAssigned}
+                            </h4>
+                            <p className="text-red-200 text-sm">
+                              {txt.urgentNeedsVolunteers}
+                            </p>
+                            <button
+                              onClick={() => setShowShiftDetailsModal(shift)}
+                              className="mt-2 text-red-400 hover:text-red-300 text-sm font-semibold flex items-center gap-1 hover:underline"
+                            >
+                              <Users size={14} />
+                              {txt.manageAssignments}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="ml-8 flex flex-col gap-3">
+                        {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
+                          <div className="flex gap-2">
+                            {/* 🎯 NOUVEAU: Bouton détails avec compteur pour organisateurs */}
+                            <button
+                              onClick={() => setShowShiftDetailsModal(shift)}
+                              className="px-4 py-2 bg-blue-500/20 text-blue-300 rounded-xl text-sm font-bold hover:bg-blue-500/30 transition-all duration-300 flex items-center gap-2"
+                            >
+                              <Eye size={16} />
+                              Détails
+                              {assignments.length > 0 && (
+                                <span className="bg-blue-500/40 px-2 py-1 rounded-full text-xs">
+                                  {assignments.length}
+                                </span>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => changeShiftStatus(shift.id, shift.status === 'draft' ? 'live' : 'draft')}
+                              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300 ${
+                                shift.status === 'draft' 
+                                  ? 'bg-green-500 text-white hover:bg-green-600 shadow-lg hover:shadow-green-500/25' 
+                                  : 'bg-gray-500 text-white hover:bg-gray-600 shadow-lg hover:shadow-gray-500/25'
+                              }`}
+                            >
+                              {shift.status === 'draft' ? txt.publish : t.draft}
+                            </button>
+                          </div>
+                        )}
+                        
+                        {shift.status === 'live' && currentUser?.role === 'volunteer' ? (
+                          isSignedUpForShift(shift.id) ? (
+                            <button
+                              onClick={() => unsubscribeFromShift(shift.id)}
+                              className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-8 py-3 rounded-xl font-bold hover:from-red-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
+                            >
+                              {txt.unsubscribe}
+                            </button>
+                          ) : (
+                            shift.current_volunteers < shift.max_volunteers && (
+                              <button
+                                onClick={() => signUpForShift(shift.id)}
+                                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-3 rounded-xl font-bold hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-2xl"
+                              >
+                                {txt.signUp}
+                              </button>
+                            )
+                          )
+                        ) : (shift.current_volunteers >= shift.max_volunteers) ? (
+                          !isSignedUpForShift(shift.id) && (
+                            <div className="bg-gray-600/30 text-gray-400 px-6 py-3 rounded-xl font-bold text-center border border-gray-500/30">
+                              {txt.full}
+                            </div>
+                          )
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Progress bar avec indicateur d'urgence */}
+                    <div className="bg-gray-700/50 rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm font-medium text-gray-300">{txt.progress}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-400">
+                            {Math.round((shift.current_volunteers / shift.max_volunteers) * 100)}%
+                          </span>
+                          {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${urgency.color}`}>
+                              {urgency.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="w-full bg-gray-600/50 rounded-full h-3">
+                        <div
+                          className={`h-3 rounded-full transition-all duration-500 shadow-lg ${
+                            isUrgent 
+                              ? 'bg-gradient-to-r from-red-500 to-orange-500' 
+                              : 'bg-gradient-to-r from-lime-500 to-green-500'
+                          }`}
+                          style={{ width: `${(shift.current_volunteers / shift.max_volunteers) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-600/50 rounded-full h-3">
-                    <div
-                      className="bg-gradient-to-r from-lime-500 to-green-500 h-3 rounded-full transition-all duration-500 shadow-lg"
-                      style={{ width: `${(shift.current_volunteers / shift.max_volunteers) * 100}%` }}
-                    ></div>
+                );
+              });
+          })()}
+        </div>
+        )}
+
+        {/* 🎯 NOUVEAUTÉ: Modal de conflit d'horaires */}
+        {showOverlapModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-red-900/90 to-orange-900/90 border border-red-500/30 rounded-3xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center gap-4 mb-8">
+                <AlertTriangle className="w-12 h-12 text-red-400 animate-pulse" />
+                <div>
+                  <h2 className="text-3xl font-bold text-white">{txt.overlapDetected}</h2>
+                  <p className="text-red-200 mt-2">{txt.overlapWarning}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 mb-8">
+                {overlapConflicts.map((conflict, index) => (
+                  <div key={index} className="bg-red-500/10 border border-red-500/30 rounded-xl p-6">
+                    <div className="flex items-start gap-4">
+                      <AlertCircle className="w-8 h-8 text-red-400 mt-1 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="text-xl font-bold text-white mb-3">
+                          {conflict.conflictingShift.title}
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <span className="text-red-300 font-semibold">{txt.conflictDate}</span>
+                            <div className="text-white">
+                              {new Date(conflict.conflictingShift.shift_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-red-300 font-semibold">{txt.conflictTime}</span>
+                            <div className="text-white">
+                              {conflict.conflictingShift.start_time} - {conflict.conflictingShift.end_time}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-red-300 font-semibold">{txt.overlapDetails}</span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            conflict.overlapType === 'complete' 
+                              ? 'bg-red-500/20 text-red-300 border border-red-500/40' 
+                              : 'bg-orange-500/20 text-orange-300 border border-orange-500/40'
+                          }`}>
+                            {conflict.overlapType === 'complete' ? txt.overlapComplete : txt.overlapPartial}
+                          </span>
+                        </div>
+
+                        {conflict.conflictingShift.description && (
+                          <p className="text-gray-300 text-sm italic">
+                            "{conflict.conflictingShift.description}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-8">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-yellow-400 mt-1 flex-shrink-0" />
+                  <div className="text-yellow-200 text-sm">
+                    <p className="font-semibold mb-2">
+                      {language === 'fr' ? '⚠️ Attention :' : 
+                       language === 'es' ? '⚠️ Atención:' : 
+                       '⚠️ Warning:'}
+                    </p>
+                    <p>
+                      {language === 'fr' ? 'S\'inscrire à des créneaux qui se chevauchent peut créer des conflits d\'horaires. Vous ne pourrez physiquement être présent qu\'à un seul endroit à la fois.' :
+                       language === 'es' ? 'Inscribirse en turnos superpuestos puede crear conflictos de horarios. Solo podrás estar físicamente presente en un lugar a la vez.' :
+                       'Signing up for overlapping shifts may create scheduling conflicts. You can only be physically present at one location at a time.'}
+                    </p>
                   </div>
                 </div>
               </div>
-            );
-          });
-          })()}
-        </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={handleCancelSignupDueToConflict}
+                  className="flex-1 px-6 py-4 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <X size={20} />
+                  {txt.cancelSignup}
+                </button>
+                <button
+                  onClick={handleContinueAnywaySignup}
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-bold hover:from-orange-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle size={20} />
+                  {txt.continueAnyway}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Modal Volunteer Dashboard */}
@@ -1311,6 +1732,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             setVolunteerSignups={setVolunteerSignups}
             setVolunteerShifts={setVolunteerShifts}
             onClose={() => setShowVolunteerDashboard(false)}
+          />
+        )}
+
+        {/* 🎯 NOUVEAU: Modal détails de créneau avec affectations */}
+        {showShiftDetailsModal && (
+          <ShiftDetailsModal
+            shift={showShiftDetailsModal}
+            isOpen={!!showShiftDetailsModal}
+            onClose={() => setShowShiftDetailsModal(null)}
+            currentUser={currentUser}
+            language={language}
+            onShiftUpdated={handleShiftUpdated}
+            onVolunteerAction={handleVolunteerAction}
           />
         )}
 

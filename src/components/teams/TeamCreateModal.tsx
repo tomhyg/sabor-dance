@@ -1,6 +1,6 @@
-// src/components/teams/TeamCreateModal.tsx - VERSION SÉCURISÉE AVEC FALLBACKS
-import React, { useState } from 'react';
-import { X, Music, Plus } from 'lucide-react';
+// src/components/teams/TeamCreateModal.tsx - VERSION AVEC PERFORMERS DYNAMIQUES
+import React, { useState, useEffect } from 'react';
+import { X, Music, Plus, User, Mail, Users, Minus } from 'lucide-react';
 import { CreateTeamData } from '../../hooks/useTeamActions';
 import { useTeamValidation } from '../../hooks/useTeamValidation';
 import { PhotoUploader } from './PhotoUploader';
@@ -8,12 +8,18 @@ import { PhotoUploader } from './PhotoUploader';
 // Import du système de traduction correct
 import { useTranslation, type Language } from '../../locales';
 
+interface Performer {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface TeamCreateModalProps {
   currentUser: any;
   translate: (key: string) => string;
   isCreating: boolean;
   onClose: () => void;
-  onSubmit: (teamData: CreateTeamData) => Promise<boolean>;
+  onSubmit: (teamData: CreateTeamData & { performers: Performer[] }) => Promise<boolean>;
   currentLanguage?: Language;
 }
 
@@ -31,23 +37,20 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
   // Fonction helper pour les traductions sécurisées
   const safeTranslate = (key: string, fallback: string = key): string => {
     try {
-      // Essayer d'abord avec le système de traduction principal
       const translation = (t as any)[key];
       if (translation && typeof translation === 'string') {
         return translation;
       }
       
-      // Fallback vers la fonction translate personnalisée
       try {
         const customTranslation = translate(key);
         if (customTranslation && customTranslation !== key) {
           return customTranslation;
         }
       } catch (e) {
-        // Ignore les erreurs de la fonction translate personnalisée
+        // Ignore les erreurs
       }
       
-      // Dernier fallback
       return fallback;
     } catch (e) {
       return fallback;
@@ -75,8 +78,47 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
     team_photo: null
   });
 
+  // 🎯 NOUVEAUTÉ: État pour les performers
+  const [performers, setPerformers] = useState<Performer[]>([]);
+
+  // 🎯 NOUVEAUTÉ: Générer automatiquement les champs performers quand group_size change
+  useEffect(() => {
+    const newSize = formData.group_size || 1;
+    
+    if (newSize > performers.length) {
+      // Ajouter des performers
+      const newPerformers = Array.from({ length: newSize - performers.length }, (_, index) => ({
+        id: `performer-${performers.length + index + 1}`,
+        name: '',
+        email: ''
+      }));
+      setPerformers(prev => [...prev, ...newPerformers]);
+    } else if (newSize < performers.length) {
+      // Supprimer des performers (garder les premiers)
+      setPerformers(prev => prev.slice(0, newSize));
+    }
+  }, [formData.group_size, performers.length]);
+
+  // 🎯 NOUVEAUTÉ: Initialiser avec au moins 1 performer
+  useEffect(() => {
+    if (performers.length === 0) {
+      setPerformers([{
+        id: 'performer-1',
+        name: '',
+        email: ''
+      }]);
+    }
+  }, [performers.length]);
+
   const handleInputChange = (field: keyof CreateTeamData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // 🎯 NOUVEAUTÉ: Handler pour les performers
+  const updatePerformer = (performerId: string, field: 'name' | 'email', value: string) => {
+    setPerformers(prev => prev.map(performer => 
+      performer.id === performerId ? { ...performer, [field]: value } : performer
+    ));
   };
 
   const addDanceStyle = (style: string) => {
@@ -90,23 +132,45 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
   };
 
   const handleSubmit = async () => {
-    const success = await onSubmit(formData);
+    // 🎯 NOUVEAUTÉ: Inclure les performers dans la soumission
+    const success = await onSubmit({ ...formData, performers });
     if (success) {
       onClose();
     }
   };
 
-  const isFormValid = formData.team_name && formData.director_name && formData.director_email && formData.city;
+  // 🎯 NOUVEAUTÉ: Validation incluant les performers
+  const isFormValid = formData.team_name && 
+                     formData.director_name && 
+                     formData.director_email && 
+                     formData.city &&
+                     performers.every(p => p.name && p.email);
+
+  // 🎯 NOUVEAUTÉ: Calculer les stats de completion
+  const getPerformerStats = () => {
+    const totalFields = performers.length * 2; // nom + email
+    const completedFields = performers.reduce((count, performer) => {
+      return count + (performer.name ? 1 : 0) + (performer.email ? 1 : 0);
+    }, 0);
+    
+    return {
+      completed: completedFields,
+      total: totalFields,
+      percentage: totalFields > 0 ? Math.round((completedFields / totalFields) * 100) : 0
+    };
+  };
+
+  const performerStats = getPerformerStats();
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800/95 backdrop-blur-md border border-gray-700/50 rounded-3xl p-8 max-w-4xl max-h-[90vh] overflow-y-auto w-full">
+      <div className="bg-gray-800/95 backdrop-blur-md border border-gray-700/50 rounded-3xl p-8 max-w-5xl max-h-[95vh] overflow-y-auto w-full">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-black text-white mb-2">
-              ✨ {safeTranslate('createTeam', 'Create Team')}
+              ✨ {safeTranslate('createTeam', 'Créer une équipe')}
             </h2>
-            <p className="text-gray-300">{safeTranslate('fillTeamInformation', 'Fill in your team information')}</p>
+            <p className="text-gray-300">{safeTranslate('fillTeamInformation', 'Remplissez les informations de votre équipe')}</p>
           </div>
           <button
             onClick={onClose}
@@ -120,33 +184,33 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Informations générales */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-purple-300 flex items-center gap-2">
-              📝 {safeTranslate('generalInfo', 'General Information')}
+              📝 {safeTranslate('generalInfo', 'Informations générales')}
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('teamName', 'Team Name')} *
+                  {safeTranslate('teamName', 'Nom de l\'équipe')} *
                 </label>
                 <input
                   type="text"
                   value={formData.team_name}
                   onChange={(e) => handleInputChange('team_name', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('teamNamePlaceholder', 'Enter team name')}
+                  placeholder={safeTranslate('teamNamePlaceholder', 'Nom de votre équipe')}
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('studioName', 'Studio Name')}
+                  {safeTranslate('studioName', 'Nom du studio')}
                 </label>
                 <input
                   type="text"
                   value={formData.studio_name}
                   onChange={(e) => handleInputChange('studio_name', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('studioNamePlaceholder', 'Enter studio name')}
+                  placeholder={safeTranslate('studioNamePlaceholder', 'Nom de votre studio')}
                 />
               </div>
             </div>
@@ -155,33 +219,33 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Informations directeur */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-blue-300 flex items-center gap-2">
-              👤 {safeTranslate('directorInfo', 'Director Information')}
+              👤 {safeTranslate('directorInfo', 'Informations du directeur')}
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('directorName', 'Director Name')} *
+                  {safeTranslate('directorName', 'Nom du directeur')} *
                 </label>
                 <input
                   type="text"
                   value={formData.director_name}
                   onChange={(e) => handleInputChange('director_name', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('directorNamePlaceholder', 'Enter director name')}
+                  placeholder={safeTranslate('directorNamePlaceholder', 'Prénom Nom')}
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('directorEmail', 'Director Email')} *
+                  {safeTranslate('directorEmail', 'Email du directeur')} *
                 </label>
                 <input
                   type="email"
                   value={formData.director_email}
                   onChange={(e) => handleInputChange('director_email', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('directorEmailPlaceholder', 'director@example.com')}
+                  placeholder={safeTranslate('directorEmailPlaceholder', 'directeur@example.com')}
                   required
                 />
               </div>
@@ -189,14 +253,14 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
             
             <div>
               <label className="block text-sm font-bold text-gray-300 mb-2">
-                {safeTranslate('directorPhone', 'Director Phone')}
+                {safeTranslate('directorPhone', 'Téléphone du directeur')}
               </label>
               <input
                 type="tel"
                 value={formData.director_phone}
                 onChange={(e) => handleInputChange('director_phone', e.target.value)}
                 className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                placeholder={safeTranslate('directorPhonePlaceholder', 'Enter phone number')}
+                placeholder={safeTranslate('directorPhonePlaceholder', '+33 6 12 34 56 78')}
               />
             </div>
           </div>
@@ -204,102 +268,222 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Localisation */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-green-300 flex items-center gap-2">
-              📍 {safeTranslate('location', 'Location')}
+              📍 {safeTranslate('location', 'Localisation')}
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('city', 'City')} *
+                  {safeTranslate('city', 'Ville')} *
                 </label>
                 <input
                   type="text"
                   value={formData.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('cityPlaceholder', 'Enter city')}
+                  placeholder={safeTranslate('cityPlaceholder', 'Paris')}
                   required
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('state', 'State/Province')}
+                  {safeTranslate('state', 'État/Province')}
                 </label>
                 <input
                   type="text"
                   value={formData.state}
                   onChange={(e) => handleInputChange('state', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('statePlaceholder', 'Enter state/province')}
+                  placeholder={safeTranslate('statePlaceholder', 'Île-de-France')}
                 />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('country', 'Country')}
+                  {safeTranslate('country', 'Pays')}
                 </label>
                 <input
                   type="text"
                   value={formData.country}
                   onChange={(e) => handleInputChange('country', e.target.value)}
                   className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                  placeholder={safeTranslate('countryPlaceholder', 'Enter country')}
+                  placeholder={safeTranslate('countryPlaceholder', 'France')}
                 />
               </div>
             </div>
           </div>
 
-          {/* Performance */}
+          {/* 🎯 NOUVEAUTÉ: Taille de l'équipe avec contrôle */}
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-orange-300 flex items-center gap-2">
+              👥 {safeTranslate('teamComposition', 'Composition de l\'équipe')}
+            </h3>
+            
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-3">
+                {safeTranslate('groupSize', 'Nombre de performers')} *
+              </label>
+              <div className="flex items-center gap-4 mb-6">
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('group_size', Math.max(1, formData.group_size - 1))}
+                  disabled={formData.group_size <= 1}
+                  className="p-3 rounded-xl bg-gray-700/50 text-gray-300 hover:bg-gray-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <Minus className="w-5 h-5" />
+                </button>
+                
+                <div className="flex-1 max-w-xs">
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={formData.group_size}
+                    onChange={(e) => handleInputChange('group_size', Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white text-center text-xl font-bold focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                  />
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => handleInputChange('group_size', Math.min(20, formData.group_size + 1))}
+                  disabled={formData.group_size >= 20}
+                  className="p-3 rounded-xl bg-gray-700/50 text-gray-300 hover:bg-gray-600/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* 🎯 NOUVEAUTÉ: Barre de progression des performers */}
+              <div className="bg-gray-800/50 rounded-2xl p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-purple-400" />
+                    <span className="text-gray-300 font-medium">Informations des performers</span>
+                  </div>
+                  <span className="text-white font-bold">{performerStats.completed}/{performerStats.total}</span>
+                </div>
+                
+                <div className="w-full bg-gray-700/50 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-gradient-to-r from-purple-500 to-pink-600 h-2 rounded-full transition-all duration-500"
+                    style={{ width: `${performerStats.percentage}%` }}
+                  ></div>
+                </div>
+                
+                <p className="text-sm text-gray-400">
+                  {performerStats.percentage}% complété - {performers.length} performer{performers.length > 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* 🎯 NOUVEAUTÉ: Liste dynamique des performers */}
+            <div className="space-y-4">
+              {performers.map((performer, index) => (
+                <div key={performer.id} className="bg-gray-800/50 border border-gray-600/30 rounded-2xl p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-white">
+                        {index === 0 ? 'Directeur principal' : `Performer ${index + 1}`}
+                      </h4>
+                      <p className="text-sm text-gray-400">
+                        {index === 0 ? 'Contact principal de l\'équipe' : 'Membre de l\'équipe'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Nom du performer */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Nom complet <span className="text-red-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="text"
+                          value={performer.name}
+                          onChange={(e) => updatePerformer(performer.id, 'name', e.target.value)}
+                          placeholder="Prénom Nom"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white placeholder-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email du performer */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Email <span className="text-red-400">*</span>
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                          type="email"
+                          value={performer.email}
+                          onChange={(e) => updatePerformer(performer.id, 'email', e.target.value)}
+                          placeholder="email@example.com"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white placeholder-gray-400 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-colors"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Indicateurs de validation */}
+                  <div className="mt-4 flex items-center gap-4 text-sm">
+                    <div className={`flex items-center gap-1 ${performer.name ? 'text-green-400' : 'text-gray-500'}`}>
+                      <div className={`w-2 h-2 rounded-full ${performer.name ? 'bg-green-400' : 'bg-gray-500'}`}></div>
+                      Nom
+                    </div>
+                    <div className={`flex items-center gap-1 ${performer.email ? 'text-green-400' : 'text-gray-500'}`}>
+                      <div className={`w-2 h-2 rounded-full ${performer.email ? 'bg-green-400' : 'bg-gray-500'}`}></div>
+                      Email
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Performance - Niveaux et styles */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-orange-300 flex items-center gap-2">
               🎭 {safeTranslate('performance', 'Performance')}
             </h3>
             
-            <div className="grid grid-cols-1 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('groupSize', 'Group Size')}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={formData.group_size}
-                  onChange={(e) => handleInputChange('group_size', parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-                />
-              </div>
-              
-              {/* Niveau de performance */}
-              <div>
-                <label className="block text-sm font-bold text-gray-300 mb-2">
-                  ⭐ {safeTranslate('performanceLevel', 'Performance Level')}
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  {(['beginner', 'intermediate', 'advanced', 'professional'] as const).map(level => (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => handleInputChange('performance_level', formData.performance_level === level ? null : level)}
-                      className={`px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        formData.performance_level === level
-                          ? 'bg-orange-500/30 border-2 border-orange-500/50 text-orange-300'
-                          : 'bg-gray-700/50 border border-gray-600/30 text-gray-300 hover:bg-orange-500/20 hover:border-orange-500/30 hover:text-orange-300'
-                      }`}
-                    >
-                      {level === 'beginner' && '🌱 ' + safeTranslate('beginner', 'Beginner')}
-                      {level === 'intermediate' && '🔥 ' + safeTranslate('intermediate', 'Intermediate')}
-                      {level === 'advanced' && '⚡ ' + safeTranslate('advanced', 'Advanced')}
-                      {level === 'professional' && '👑 ' + safeTranslate('professional', 'Professional')}
-                    </button>
-                  ))}
-                </div>
+            {/* Niveau de performance */}
+            <div>
+              <label className="block text-sm font-bold text-gray-300 mb-2">
+                ⭐ {safeTranslate('performanceLevel', 'Niveau de performance')}
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {(['beginner', 'intermediate', 'advanced', 'professional'] as const).map(level => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => handleInputChange('performance_level', formData.performance_level === level ? null : level)}
+                    className={`px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      formData.performance_level === level
+                        ? 'bg-orange-500/30 border-2 border-orange-500/50 text-orange-300'
+                        : 'bg-gray-700/50 border border-gray-600/30 text-gray-300 hover:bg-orange-500/20 hover:border-orange-500/30 hover:text-orange-300'
+                    }`}
+                  >
+                    {level === 'beginner' && '🌱 Débutant'}
+                    {level === 'intermediate' && '🔥 Intermédiaire'}
+                    {level === 'advanced' && '⚡ Avancé'}
+                    {level === 'professional' && '👑 Professionnel'}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* Styles de danse */}
             <div>
               <label className="block text-sm font-bold text-gray-300 mb-2">
-                {safeTranslate('danceStyles', 'Dance Styles')}
+                {safeTranslate('danceStyles', 'Styles de danse')}
               </label>
               <div className="flex flex-wrap gap-2 mb-4">
                 {formData.dance_styles.map((style) => (
@@ -341,12 +525,12 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Vidéo de performance */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-blue-300 flex items-center gap-2">
-              🎬 {safeTranslate('performanceVideo', 'Performance Video')}
+              🎬 {safeTranslate('performanceVideo', 'Vidéo de performance')}
             </h3>
             
             <div>
               <label className="block text-sm font-bold text-gray-300 mb-2">
-                🎬 {safeTranslate('performanceVideo', 'Performance Video')}
+                🎬 {safeTranslate('performanceVideo', 'Lien vidéo de performance')}
               </label>
               <input
                 type="url"
@@ -356,7 +540,7 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
                 placeholder="https://youtube.com/watch?v=... ou Google Drive, Vimeo..."
               />
               <p className="text-gray-400 text-xs mt-2">
-                💡 {safeTranslate('acceptedLinks', 'Accepted links')}: YouTube, Vimeo, Google Drive, Dropbox, etc.
+                💡 {safeTranslate('acceptedLinks', 'Liens acceptés')}: YouTube, Vimeo, Google Drive, Dropbox, etc.
               </p>
             </div>
           </div>
@@ -364,7 +548,7 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Réseaux sociaux */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-pink-300 flex items-center gap-2">
-              📱 {safeTranslate('socialMedia', 'Social Media')}
+              📱 {safeTranslate('socialMedia', 'Réseaux sociaux')}
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -382,7 +566,7 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-300 mb-2">
-                  {safeTranslate('website', 'Website')}
+                  {safeTranslate('website', 'Site web')}
                 </label>
                 <input
                   type="url"
@@ -398,12 +582,12 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Upload photo équipe */}
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-green-300 flex items-center gap-2">
-              📸 {safeTranslate('media', 'Media')}
+              📸 {safeTranslate('media', 'Médias')}
             </h3>
             
             <PhotoUploader
               onPhotoSelect={(file) => handleInputChange('team_photo', file)}
-              translate={translate} // Garder l'ancienne fonction pour PhotoUploader
+              translate={translate}
               required={true}
             />
           </div>
@@ -411,7 +595,7 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
           {/* Upload MP3 */}
           <div>
             <label className="block text-sm font-bold text-gray-300 mb-2">
-              🎵 {safeTranslate('musicFile', 'Music File')} (MP3, WAV, M4A)
+              🎵 {safeTranslate('musicFile', 'Fichier musical')} (MP3, WAV, M4A)
             </label>
             <div className="border-2 border-dashed border-purple-500/30 rounded-xl p-6 text-center hover:border-purple-500/50 transition-colors">
               <input
@@ -441,13 +625,13 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
                   {formData.music_file ? (
                     <div>
                       <p className="text-green-400 font-semibold">✅ {formData.music_file.name}</p>
-                      <p className="text-green-300 text-sm">{safeTranslate('fileReadyToUpload', 'File ready to upload')}</p>
-                      <p className="text-gray-400 text-xs mt-1">{safeTranslate('clickToChange', 'Click to change')}</p>
+                      <p className="text-green-300 text-sm">{safeTranslate('fileReadyToUpload', 'Fichier prêt à télécharger')}</p>
+                      <p className="text-gray-400 text-xs mt-1">{safeTranslate('clickToChange', 'Cliquer pour changer')}</p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-purple-300 font-semibold">{safeTranslate('clickToSelect', 'Click to select')}</p>
-                      <p className="text-gray-400 text-sm">MP3, WAV, M4A {safeTranslate('accepted', 'accepted')}</p>
+                      <p className="text-purple-300 font-semibold">{safeTranslate('clickToSelect', 'Cliquer pour sélectionner')}</p>
+                      <p className="text-gray-400 text-sm">MP3, WAV, M4A {safeTranslate('accepted', 'acceptés')}</p>
                     </div>
                   )}
                 </div>
@@ -457,7 +641,7 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
             {formData.music_file && (
               <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg text-xs">
                 <p className="text-green-300">
-                  <strong>{safeTranslate('fileSelected', 'File selected')}:</strong> {formData.music_file.name} 
+                  <strong>{safeTranslate('fileSelected', 'Fichier sélectionné')}:</strong> {formData.music_file.name} 
                   ({(formData.music_file.size / 1024 / 1024).toFixed(1)} MB)
                 </p>
               </div>
@@ -471,7 +655,7 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
             onClick={onClose}
             className="px-6 py-3 bg-gray-700/50 border border-gray-600/30 rounded-xl text-gray-300 hover:bg-gray-600/50 transition-all duration-200"
           >
-            {safeTranslate('cancel', 'Cancel')}
+            {safeTranslate('cancel', 'Annuler')}
           </button>
           <button
             onClick={handleSubmit}
@@ -481,16 +665,30 @@ export const TeamCreateModal: React.FC<TeamCreateModalProps> = ({
             {isCreating ? (
               <>
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                {safeTranslate('creating', 'Creating')}...
+                {safeTranslate('creating', 'Création')}...
               </>
             ) : (
               <>
                 <Plus className="w-5 h-5" />
-                {safeTranslate('createTeam', 'Create Team')}
+                {safeTranslate('createTeam', 'Créer l\'équipe')}
               </>
             )}
           </button>
         </div>
+
+        {/* 🎯 NOUVEAUTÉ: Résumé des erreurs */}
+        {!isFormValid && (
+          <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+            <h4 className="text-red-400 font-medium mb-2">⚠️ Informations manquantes :</h4>
+            <ul className="text-sm text-red-300 space-y-1">
+              {!formData.team_name && <li>• Nom de l'équipe</li>}
+              {!formData.director_name && <li>• Nom du directeur</li>}
+              {!formData.director_email && <li>• Email du directeur</li>}
+              {!formData.city && <li>• Ville</li>}
+              {performers.some(p => !p.name || !p.email) && <li>• Informations complètes de tous les performers</li>}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

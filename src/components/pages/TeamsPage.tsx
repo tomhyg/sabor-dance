@@ -1,6 +1,6 @@
-// src/components/pages/TeamsPage.tsx - VERSION SÉCURISÉE AVEC FALLBACKS
+// src/components/pages/TeamsPage.tsx - AVEC FILTRES DE STATUT
 import React, { useState, useEffect } from 'react';
-import { Plus, Filter, Search, Download, RefreshCw, Users, CheckCircle, Target, BarChart3, FileSpreadsheet, FileText } from 'lucide-react';
+import { Plus, Filter, Search, Download, RefreshCw, Users, CheckCircle, Target, BarChart3, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
 import { useTeams } from '../../hooks/useTeams';
 import { useTeamActions, CreateTeamData } from '../../hooks/useTeamActions';
 import { PerformanceTeam, TechRehearsalRating } from '../../types/PerformanceTeam';
@@ -18,6 +18,18 @@ interface TeamsPageProps {
   translate: (key: string) => string;
   currentLanguage?: Language;
 }
+
+// 🎯 NOUVEAUTÉ: Types et options de filtres
+type TeamStatusFilter = 'all' | 'draft' | 'submitted' | 'approved' | 'rejected' | 'completed';
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'Toutes', labelEn: 'All', labelEs: 'Todas', color: 'gray' },
+  { value: 'draft', label: 'Brouillons', labelEn: 'Drafts', labelEs: 'Borradores', color: 'yellow' },
+  { value: 'submitted', label: 'Soumises', labelEn: 'Submitted', labelEs: 'Enviadas', color: 'blue' },
+  { value: 'approved', label: 'Approuvées', labelEn: 'Approved', labelEs: 'Aprobadas', color: 'green' },
+  { value: 'rejected', label: 'Rejetées', labelEn: 'Rejected', labelEs: 'Rechazadas', color: 'red' },
+  { value: 'completed', label: 'Terminées', labelEn: 'Completed', labelEs: 'Completadas', color: 'purple' }
+] as const;
 
 export const TeamsPage: React.FC<TeamsPageProps> = ({ 
   currentUser, 
@@ -93,9 +105,37 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
   const [showTeamDetails, setShowTeamDetails] = useState<PerformanceTeam | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'created' | 'submitted' | 'city'>('name');
+  
+  // 🎯 NOUVEAUTÉ: État pour le filtre de statut
+  const [statusFilter, setStatusFilter] = useState<TeamStatusFilter>('all');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  // 🎯 NOUVEAUTÉ: Fonction pour obtenir le label du filtre selon la langue
+  const getFilterLabel = (option: typeof STATUS_FILTER_OPTIONS[number]): string => {
+    switch (currentLanguage) {
+      case 'en':
+        return option.labelEn;
+      case 'es':
+        return option.labelEs;
+      default:
+        return option.label;
+    }
+  };
+
+  // 🎯 NOUVEAUTÉ: Fonction pour obtenir la couleur du badge de statut
+  const getStatusColor = (status: string): string => {
+    const option = STATUS_FILTER_OPTIONS.find(opt => opt.value === status);
+    return option?.color || 'gray';
+  };
 
   // 📋 ÉQUIPES FILTRÉES ET TRIÉES
   const filteredAndSortedTeams = getSortedTeams(sortBy).filter(team => {
+    // Filtre par statut
+    if (statusFilter !== 'all' && team.status !== statusFilter) {
+      return false;
+    }
+
+    // Filtre par terme de recherche
     const filtered = getFilteredTeams({
       searchTerm
     });
@@ -142,6 +182,12 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
       }
     }
     return success;
+  };
+
+  // 🎯 NOUVEAUTÉ: Handler pour le changement de filtre de statut
+  const handleStatusFilterChange = (newStatus: TeamStatusFilter) => {
+    setStatusFilter(newStatus);
+    setShowFilterDropdown(false);
   };
 
   // 🔄 ACTUALISATION
@@ -314,19 +360,95 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
       {/* Contenu principal */}
       <div className="container mx-auto px-4 py-8">
 
-        {/* Barre de recherche */}
+        {/* 🎯 NOUVEAUTÉ: Barre de recherche et filtres */}
         {isOrganizer && (
           <div className="mb-8">
-            <div className="relative max-w-lg mx-auto">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-300" size={20} />
-              <input
-                type="text"
-                placeholder={safeTranslate('searchTeams', 'Search teams...')}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-gray-600/60 border-2 border-gray-500/50 rounded-xl text-white placeholder-gray-300 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition-all duration-200"
-              />
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-center">
+              {/* Barre de recherche */}
+              <div className="relative max-w-lg flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-300" size={20} />
+                <input
+                  type="text"
+                  placeholder={safeTranslate('searchTeams', 'Search teams...')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-600/60 border-2 border-gray-500/50 rounded-xl text-white placeholder-gray-300 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 transition-all duration-200"
+                />
+              </div>
+
+              {/* 🎯 NOUVEAUTÉ: Dropdown de filtres de statut */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-700/50 border-2 border-gray-600/50 rounded-xl text-white hover:bg-gray-600/50 transition-all duration-200 min-w-[160px] justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Filter size={18} />
+                    <span className="font-medium">
+                      {getFilterLabel(STATUS_FILTER_OPTIONS.find(opt => opt.value === statusFilter) || STATUS_FILTER_OPTIONS[0])}
+                    </span>
+                  </div>
+                  <ChevronDown size={16} className={`transition-transform duration-200 ${showFilterDropdown ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown des options de filtre */}
+                {showFilterDropdown && (
+                  <div className="absolute top-full mt-2 right-0 bg-gray-800/95 backdrop-blur-sm border border-gray-600/50 rounded-xl shadow-2xl shadow-black/30 z-50 min-w-[200px]">
+                    {STATUS_FILTER_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleStatusFilterChange(option.value)}
+                        className={`w-full px-4 py-3 text-left hover:bg-gray-700/50 transition-colors flex items-center justify-between group ${
+                          statusFilter === option.value ? 'bg-purple-500/20 text-purple-200' : 'text-gray-300'
+                        } ${option === STATUS_FILTER_OPTIONS[0] ? 'rounded-t-xl' : ''} ${
+                          option === STATUS_FILTER_OPTIONS[STATUS_FILTER_OPTIONS.length - 1] ? 'rounded-b-xl' : ''
+                        }`}
+                      >
+                        <span className="font-medium">{getFilterLabel(option)}</span>
+                        <div className="flex items-center gap-2">
+                          {/* Badge avec nombre d'équipes */}
+                          <span className={`px-2 py-1 text-xs rounded-full font-bold ${
+                            option.value === 'all' 
+                              ? 'bg-gray-500/30 text-gray-300'
+                              : `bg-${option.color}-500/30 text-${option.color}-300`
+                          }`}>
+                            {option.value === 'all' ? stats.total : 
+                             option.value === 'draft' ? stats.draft :
+                             option.value === 'submitted' ? stats.submitted :
+                             option.value === 'approved' ? stats.approved :
+                             option.value === 'rejected' ? stats.rejected :
+                             option.value === 'completed' ? stats.completed : 0}
+                          </span>
+                          {/* Indicateur de sélection */}
+                          {statusFilter === option.value && (
+                            <CheckCircle size={16} className="text-purple-400" />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* 🎯 NOUVEAUTÉ: Affichage du filtre actif */}
+            {statusFilter !== 'all' && (
+              <div className="mt-4 flex items-center justify-center">
+                <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg">
+                  <Filter size={16} className="text-purple-300" />
+                  <span className="text-purple-200 font-medium">
+                    {safeTranslate('filteredBy', 'Filtered by')}: {getFilterLabel(STATUS_FILTER_OPTIONS.find(opt => opt.value === statusFilter) || STATUS_FILTER_OPTIONS[0])}
+                  </span>
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className="text-purple-300 hover:text-white transition-colors"
+                    title={safeTranslate('clearFilter', 'Clear filter')}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -337,12 +459,16 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
             <h3 className="text-2xl font-bold text-white mb-4">
               {performanceTeams.length === 0 ? 
                 safeTranslate('noTeamsYet', 'No teams yet') : 
+                statusFilter !== 'all' ? 
+                safeTranslate('noTeamsForFilter', 'No teams found for this filter') :
                 safeTranslate('noTeamsFound', 'No teams found')
               }
             </h3>
             <p className="text-purple-200 mb-8">
               {performanceTeams.length === 0 ? 
                 safeTranslate('createFirstTeam', 'Create your first team') : 
+                statusFilter !== 'all' ?
+                safeTranslate('tryDifferentFilter', 'Try a different filter or search term') :
                 safeTranslate('tryDifferentSearch', 'Try a different search')
               }
             </p>
@@ -411,7 +537,6 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
           currentUser={currentUser}
           translate={translate}
           currentLanguage={currentLanguage}
-          // Pas de currentLanguage car TeamEditModal ne le supporte pas encore
           isUpdating={isUpdating}
           onClose={() => setShowEditTeam(null)}
           onSubmit={updateTeam}
@@ -434,6 +559,14 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
             setShowTeamDetails(null);
           }}
           onRatingUpdate={handleRatingUpdate}
+        />
+      )}
+
+      {/* 🎯 NOUVEAUTÉ: Overlay pour fermer le dropdown */}
+      {showFilterDropdown && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowFilterDropdown(false)}
         />
       )}
     </div>

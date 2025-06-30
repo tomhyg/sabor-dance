@@ -1,5 +1,5 @@
-// src/components/teams/TeamDetailsModal.tsx - VERSION CORRIGÉE AVEC TRADUCTIONS FONCTIONNELLES
-import React, { useState } from 'react';
+// src/components/teams/TeamDetailsModal.tsx - VERSION AVEC PERFORMERS
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Music, 
@@ -16,10 +16,15 @@ import {
   User,
   Award,
   Edit3,
-  Save
+  Save,
+  Mail,
+  Phone,
+  Crown,
+  UserCheck
 } from 'lucide-react';
 import { PerformanceTeam, TechRehearsalRating, DEFAULT_RATING_LABELS } from '../../types/PerformanceTeam';
 import { getStatusColor, formatDanceStyles } from '../../utils/teamUtils';
+import { teamService, Performer } from '../../services/teamService';
 
 // Import du système de traduction
 import { useTranslation, type Language, DEFAULT_LANGUAGE } from '../../locales';
@@ -45,34 +50,64 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
   onReject,
   onRatingUpdate
 }) => {
-  // 🌐 SYSTÈME DE TRADUCTION LOCAL - VERSION CORRIGÉE
+  // 🌐 SYSTÈME DE TRADUCTION LOCAL
   const { translate: t } = useTranslation(currentLanguage);
 
-  // Fonction helper pour les traductions sécurisées - VERSION CORRIGÉE
+  // 🎯 NOUVEAUTÉ: État pour les performers
+  const [performers, setPerformers] = useState<Performer[]>([]);
+  const [loadingPerformers, setLoadingPerformers] = useState(true);
+
+  // Fonction helper pour les traductions sécurisées
   const safeTranslate = (key: string, fallbackEn: string = key): string => {
     try {
-      // Utiliser la fonction translate du hook useTranslation
       const translation = t(key);
       if (translation && translation !== key) {
         return translation;
       }
       
-      // Fallback vers la fonction translate personnalisée
       try {
         const customTranslation = translate(key);
         if (customTranslation && customTranslation !== key) {
           return customTranslation;
         }
       } catch (e) {
-        // Ignore les erreurs de la fonction translate personnalisée
+        // Ignore les erreurs
       }
       
-      // Dernier fallback - utiliser l'anglais par défaut pour BSF
       return fallbackEn;
     } catch (e) {
       return fallbackEn;
     }
   };
+
+  // 🎯 NOUVEAUTÉ: Charger les performers
+  useEffect(() => {
+    const loadPerformers = async () => {
+      try {
+        setLoadingPerformers(true);
+        console.log('🔍 Chargement performers pour équipe:', team.id);
+        
+        const result = await teamService.getTeamWithPerformers(team.id);
+        
+        if (result.success && result.data?.performers) {
+          setPerformers(result.data.performers);
+          console.log('✅ Performers chargés:', result.data.performers);
+        } else {
+          console.log('⚠️ Aucun performer trouvé ou erreur:', result.message);
+          setPerformers([]);
+        }
+      } catch (error) {
+        console.error('❌ Erreur chargement performers:', error);
+        setPerformers([]);
+      } finally {
+        setLoadingPerformers(false);
+      }
+    };
+
+    if (team.id) {
+      loadPerformers();
+    }
+  }, [team.id]);
 
   const statusColors = getStatusColor(team.status);
   const isOrganizer = currentUser?.role === 'organizer' || currentUser?.role === 'admin';
@@ -136,7 +171,6 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
 
     return (
       <div className="bg-slate-800/30 rounded-xl p-4">
-        {/* Label personnalisable */}
         {isEditingRating && onLabelChange ? (
           <input
             type="text"
@@ -149,7 +183,6 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
           <span className="block text-sm font-medium text-gray-300 mb-3">{label}</span>
         )}
         
-        {/* Étoiles */}
         <div className="flex items-center gap-1 mb-2">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
@@ -180,6 +213,50 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
     );
   };
 
+  // 🎯 NOUVEAUTÉ: Composant pour afficher un performer
+  const PerformerCard: React.FC<{ performer: Performer; index: number }> = ({ performer, index }) => (
+    <div className="bg-gray-800/30 border border-gray-600/20 rounded-2xl p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="relative">
+          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+            {index + 1}
+          </div>
+          {performer.is_team_director && (
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+              <Crown className="w-3 h-3 text-yellow-900" />
+            </div>
+          )}
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-white">
+            {performer.name}
+            {performer.is_team_director && (
+              <span className="ml-2 text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full">
+                {safeTranslate('director', 'Directeur')}
+              </span>
+            )}
+          </h4>
+          {performer.role && performer.role !== 'performer' && (
+            <p className="text-sm text-gray-400 capitalize">{performer.role}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm">
+          <Mail className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-300">{performer.email}</span>
+        </div>
+        {performer.phone && (
+          <div className="flex items-center gap-2 text-sm">
+            <Phone className="w-4 h-4 text-gray-400" />
+            <span className="text-gray-300">{performer.phone}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // INFOS MUSIQUE
   const getMusicDisplayInfo = () => {
     if (!team.music_file_url) {
@@ -206,7 +283,7 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800/95 backdrop-blur-md border border-gray-700/50 rounded-3xl max-w-6xl max-h-[90vh] overflow-y-auto w-full">
+      <div className="bg-gray-800/95 backdrop-blur-md border border-gray-700/50 rounded-3xl max-w-7xl max-h-[95vh] overflow-y-auto w-full">
         
         {/* Header */}
         <div className="flex items-center justify-between p-8 border-b border-gray-700/50">
@@ -234,6 +311,11 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                     {safeTranslate(team.performance_level, team.performance_level)}
                   </span>
                 )}
+                {/* 🎯 NOUVEAUTÉ: Badge nombre de performers */}
+                <span className="px-3 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full text-blue-300 text-sm flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {performers.length || team.group_size} {safeTranslate('members', 'membres')}
+                </span>
               </div>
             </div>
           </div>
@@ -246,21 +328,21 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
         </div>
 
         {/* Contenu principal */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
           
-          {/* Colonne gauche */}
+          {/* Colonne gauche - Informations générales */}
           <div className="space-y-6">
             
-            {/* Informations générales */}
+            {/* Informations de base */}
             <div>
               <h3 className="text-xl font-bold text-blue-300 mb-4 flex items-center gap-2">
-                👥 {safeTranslate('generalInfo', 'General Information')}
+                ℹ️ {safeTranslate('generalInfo', 'Informations générales')}
               </h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-blue-400" />
                   <div>
-                    <strong className="text-gray-300">{safeTranslate('director', 'Director')}:</strong>
+                    <strong className="text-gray-300">{safeTranslate('director', 'Directeur')}:</strong>
                     <span className="ml-2 text-white">{team.director_name}</span>
                   </div>
                 </div>
@@ -268,7 +350,7 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                 <div className="flex items-center gap-3">
                   <MapPin className="w-5 h-5 text-green-400" />
                   <div>
-                    <strong className="text-gray-300">{safeTranslate('location', 'Location')}:</strong>
+                    <strong className="text-gray-300">{safeTranslate('location', 'Localisation')}:</strong>
                     <span className="ml-2 text-white">
                       {[team.city, team.state, team.country].filter(Boolean).join(', ')}
                     </span>
@@ -283,14 +365,14 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                 )}
 
                 <div>
-                  <strong className="text-gray-300">{safeTranslate('groupSize', 'Group Size')}:</strong>
-                  <span className="ml-2 text-white">{team.group_size} {safeTranslate('dancers', 'dancers')}</span>
+                  <strong className="text-gray-300">{safeTranslate('groupSize', 'Taille du groupe')}:</strong>
+                  <span className="ml-2 text-white">{team.group_size} {safeTranslate('dancers', 'danseurs')}</span>
                 </div>
                 
                 {/* Styles de danse */}
                 {team.dance_styles && team.dance_styles.length > 0 && (
                   <div>
-                    <strong className="text-gray-300">{safeTranslate('danceStyles', 'Dance Styles')}:</strong>
+                    <strong className="text-gray-300">{safeTranslate('danceStyles', 'Styles de danse')}:</strong>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {team.dance_styles.map((style, index) => (
                         <span 
@@ -307,7 +389,7 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                 {/* Vidéo de performance */}
                 {team.performance_video_url && (
                   <div>
-                    <strong className="text-gray-300">{safeTranslate('performanceVideo', 'Performance Video')}:</strong>
+                    <strong className="text-gray-300">{safeTranslate('performanceVideo', 'Vidéo de performance')}:</strong>
                     <div className="mt-2">
                       <a 
                         href={team.performance_video_url ?? undefined}
@@ -316,7 +398,7 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                         className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-500/30 text-blue-300 px-4 py-2 rounded-xl hover:bg-blue-500/30 transition-colors"
                       >
                         <Play className="w-4 h-4" />
-                        {safeTranslate('watchVideo', 'Watch Video')}
+                        {safeTranslate('watchVideo', 'Regarder la vidéo')}
                       </a>
                     </div>
                   </div>
@@ -324,7 +406,7 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                 
                 {/* Fichier musical */}
                 <div>
-                  <strong className="text-gray-300">{safeTranslate('musicFile', 'Music File')}:</strong>
+                  <strong className="text-gray-300">{safeTranslate('musicFile', 'Fichier musical')}:</strong>
                   <div className="mt-2">
                     {musicInfo.hasFile ? (
                       <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded-xl">
@@ -397,7 +479,48 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
             )}
           </div>
 
-          {/* Colonne droite */}
+          {/* Colonne centrale - Performers */}
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-purple-300 mb-4 flex items-center gap-2">
+                👥 {safeTranslate('teamMembers', 'Membres de l\'équipe')}
+                <span className="text-sm font-normal bg-purple-500/20 px-2 py-1 rounded-full">
+                  {loadingPerformers ? '...' : performers.length}
+                </span>
+              </h3>
+              
+              {loadingPerformers ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="ml-3 text-gray-400">{safeTranslate('loading', 'Chargement')}...</span>
+                </div>
+              ) : performers.length > 0 ? (
+                <div className="space-y-3">
+                  {performers
+                    .sort((a, b) => {
+                      // Directeur en premier
+                      if (a.is_team_director && !b.is_team_director) return -1;
+                      if (!a.is_team_director && b.is_team_director) return 1;
+                      // Puis par position
+                      return (a.position_in_team || 999) - (b.position_in_team || 999);
+                    })
+                    .map((performer, index) => (
+                      <PerformerCard key={performer.id || index} performer={performer} index={index} />
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <UserCheck className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                  <p className="text-gray-400">{safeTranslate('noPerformersFound', 'Aucun membre trouvé')}</p>
+                  <p className="text-gray-500 text-sm mt-1">
+                    {safeTranslate('performersNotMigrated', 'Les membres de cette équipe n\'ont pas encore été migrés')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Colonne droite - Historique et Actions */}
           <div className="space-y-6">
             
             {/* Historique */}
@@ -475,156 +598,6 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
               </div>
             )}
 
-            {/* ⭐ SECTION NOTATION TECH REHEARSAL */}
-            {(isOrganizer || hasRating) && (
-              <div className="border-t border-gray-700/50 pt-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-yellow-300 flex items-center gap-2">
-                    <Award className="w-6 h-6" />
-                    🎭 {safeTranslate('techRehearsalRating', 'Notation répétition technique')}
-                  </h3>
-                  
-                  {!canRate && !hasRating && (
-                    <span className="text-sm text-gray-500 flex items-center gap-2">
-                      👀 {safeTranslate('organizersOnly', 'Organisateurs uniquement')}
-                    </span>
-                  )}
-                </div>
-
-                {canRate ? (
-                  <div className="space-y-6">
-                    {/* Grille des 3 critères */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <StarRating
-                        label={editingRating.rating_1_label}
-                        rating={editingRating.rating_1}
-                        onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_1: rating })) : undefined}
-                        onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_1_label: label })) : undefined}
-                        readonly={!isEditingRating}
-                      />
-                      
-                      <StarRating
-                        label={editingRating.rating_2_label}
-                        rating={editingRating.rating_2}
-                        onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_2: rating })) : undefined}
-                        onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_2_label: label })) : undefined}
-                        readonly={!isEditingRating}
-                      />
-                      
-                      <StarRating
-                        label={editingRating.rating_3_label}
-                        rating={editingRating.rating_3}
-                        onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_3: rating })) : undefined}
-                        onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_3_label: label })) : undefined}
-                        readonly={!isEditingRating}
-                      />
-                    </div>
-
-                    {/* Commentaires */}
-                    <div className="bg-slate-800/30 rounded-xl p-4">
-                      <label className="block text-sm font-medium text-gray-300 mb-3">
-                        💬 {safeTranslate('comments', 'Commentaires')} ({safeTranslate('optional', 'optionnel')})
-                      </label>
-                      {isEditingRating ? (
-                        <textarea
-                          value={editingRating.comments}
-                          onChange={(e) => setEditingRating(prev => ({ ...prev, comments: e.target.value }))}
-                          className="w-full p-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors"
-                          rows={3}
-                          placeholder={safeTranslate('performanceNotesPlaceholder', 'Notes sur la performance technique, problèmes rencontrés, points forts...')}
-                        />
-                      ) : (
-                        <p className="text-gray-300 min-h-[1.5rem] italic">
-                          {team.tech_rehearsal_rating?.comments || safeTranslate('noComments', 'Aucun commentaire')}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Info notation */}
-                    {hasRating && !isEditingRating && team.tech_rehearsal_rating && (
-                      <div className="text-xs text-gray-500 bg-slate-800/20 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Award className="w-3 h-3" />
-                          {safeTranslate('ratedBy', 'Noté par')} {team.tech_rehearsal_rating.rated_by || safeTranslate('organizer', 'Organisateur')}
-                        </div>
-                        <div>
-                          {safeTranslate('on', 'Le')} {team.tech_rehearsal_rating.rated_at ? 
-                            new Date(team.tech_rehearsal_rating.rated_at).toLocaleDateString(currentLanguage, {
-                              day: 'numeric', month: 'long', year: 'numeric', 
-                              hour: '2-digit', minute: '2-digit'
-                            }) : ''}
-                        </div>
-                        {team.tech_rehearsal_rating.updated_at && team.tech_rehearsal_rating.updated_at !== team.tech_rehearsal_rating.rated_at && (
-                          <div className="text-amber-400 mt-1">
-                            {safeTranslate('modifiedOn', 'Modifié le')} {new Date(team.tech_rehearsal_rating.updated_at).toLocaleDateString(currentLanguage, {
-                              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Boutons d'action */}
-                    <div className="flex items-center gap-3">
-                      {!isEditingRating ? (
-                        <button
-                          onClick={() => setIsEditingRating(true)}
-                          className="flex items-center gap-2 px-6 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/30 rounded-xl font-medium transition-all duration-200"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                          {hasRating ? safeTranslate('modifyRating', 'Modifier la notation') : safeTranslate('rateThisTeam', 'Noter cette équipe')}
-                        </button>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={handleSaveRating}
-                            className="flex items-center gap-2 px-6 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-xl font-medium transition-all duration-200"
-                          >
-                            <Save className="w-4 h-4" />
-                            {safeTranslate('save', 'Sauvegarder')}
-                          </button>
-                          <button
-                            onClick={handleCancelRating}
-                            className="flex items-center gap-2 px-4 py-3 bg-gray-500/20 hover:bg-gray-500/30 text-gray-400 border border-gray-500/30 rounded-xl font-medium transition-all duration-200"
-                          >
-                            <X className="w-4 h-4" />
-                            {safeTranslate('cancel', 'Annuler')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : hasRating ? (
-                  // Vue lecture seule
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <StarRating
-                        label={team.tech_rehearsal_rating!.rating_1_label}
-                        rating={team.tech_rehearsal_rating!.rating_1}
-                        readonly={true}
-                      />
-                      <StarRating
-                        label={team.tech_rehearsal_rating!.rating_2_label}
-                        rating={team.tech_rehearsal_rating!.rating_2}
-                        readonly={true}
-                      />
-                      <StarRating
-                        label={team.tech_rehearsal_rating!.rating_3_label}
-                        rating={team.tech_rehearsal_rating!.rating_3}
-                        readonly={true}
-                      />
-                    </div>
-                    {team.tech_rehearsal_rating?.comments && (
-                      <div className="bg-slate-800/30 rounded-xl p-4">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">{safeTranslate('comments', 'Commentaires')}</label>
-                        <p className="text-gray-300 italic">{team.tech_rehearsal_rating.comments}</p>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            )}
-
             {/* Raison du rejet */}
             {team.rejection_reason && (
               <div>
@@ -638,6 +611,149 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
             )}
           </div>
         </div>
+
+        {/* ⭐ SECTION NOTATION TECH REHEARSAL - Pleine largeur en bas */}
+        {(isOrganizer || hasRating) && (
+          <div className="border-t border-gray-700/50 p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-yellow-300 flex items-center gap-2">
+                <Award className="w-7 h-7" />
+                🎭 {safeTranslate('techRehearsalRating', 'Notation répétition technique')}
+              </h3>
+              
+              {!canRate && !hasRating && (
+                <span className="text-sm text-gray-500 flex items-center gap-2">
+                  👀 {safeTranslate('organizersOnly', 'Organisateurs uniquement')}
+                </span>
+              )}
+            </div>
+
+            {canRate ? (
+              <div className="space-y-6">
+                {/* Grille des 3 critères */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <StarRating
+                    label={editingRating.rating_1_label}
+                    rating={editingRating.rating_1}
+                    onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_1: rating })) : undefined}
+                    onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_1_label: label })) : undefined}
+                    readonly={!isEditingRating}
+                  />
+                  
+                  <StarRating
+                    label={editingRating.rating_2_label}
+                    rating={editingRating.rating_2}
+                    onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_2: rating })) : undefined}
+                    onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_2_label: label })) : undefined}
+                    readonly={!isEditingRating}
+                  />
+                  
+                  <StarRating
+                    label={editingRating.rating_3_label}
+                    rating={editingRating.rating_3}
+                    onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_3: rating })) : undefined}
+                    onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_3_label: label })) : undefined}
+                    readonly={!isEditingRating}
+                  />
+                </div>
+
+                {/* Commentaires */}
+                <div className="bg-slate-800/30 rounded-xl p-6">
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    💬 {safeTranslate('comments', 'Commentaires')} ({safeTranslate('optional', 'optionnel')})
+                  </label>
+                  {isEditingRating ? (
+                    <textarea
+                      value={editingRating.comments}
+                      onChange={(e) => setEditingRating(prev => ({ ...prev, comments: e.target.value }))}
+                      className="w-full p-4 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors"
+                      rows={4}
+                      placeholder={safeTranslate('performanceNotesPlaceholder', 'Notes sur la performance technique, problèmes rencontrés, points forts...')}
+                    />
+                  ) : (
+                    <p className="text-gray-300 min-h-[1.5rem] italic">
+                      {team.tech_rehearsal_rating?.comments || safeTranslate('noComments', 'Aucun commentaire')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Info notation */}
+                {hasRating && !isEditingRating && team.tech_rehearsal_rating && (
+                  <div className="text-sm text-gray-500 bg-slate-800/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Award className="w-4 h-4" />
+                      {safeTranslate('ratedBy', 'Noté par')} {team.tech_rehearsal_rating.rated_by || safeTranslate('organizer', 'Organisateur')}
+                    </div>
+                    <div>
+                      {safeTranslate('on', 'Le')} {team.tech_rehearsal_rating.rated_at ? 
+                        new Date(team.tech_rehearsal_rating.rated_at).toLocaleDateString(currentLanguage, {
+                          day: 'numeric', month: 'long', year: 'numeric', 
+                          hour: '2-digit', minute: '2-digit'
+                        }) : ''}
+                    </div>
+                  </div>
+                )}
+
+                {/* Boutons d'action */}
+                <div className="flex items-center gap-4">
+                  {!isEditingRating ? (
+                    <button
+                      onClick={() => setIsEditingRating(true)}
+                      className="flex items-center gap-2 px-8 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/30 rounded-xl font-medium transition-all duration-200"
+                    >
+                      <Edit3 className="w-5 h-5" />
+                      {hasRating ? safeTranslate('modifyRating', 'Modifier la notation') : safeTranslate('rateThisTeam', 'Noter cette équipe')}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={handleSaveRating}
+                        className="flex items-center gap-2 px-8 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/30 rounded-xl font-medium transition-all duration-200"
+                      >
+                        <Save className="w-5 h-5" />
+                        {safeTranslate('save', 'Sauvegarder')}
+                      </button>
+                      <button
+                        onClick={handleCancelRating}
+                        className="flex items-center gap-2 px-6 py-3 bg-gray-500/20 hover:bg-gray-500/30 text-gray-400 border border-gray-500/30 rounded-xl font-medium transition-all duration-200"
+                      >
+                        <X className="w-5 h-5" />
+                        {safeTranslate('cancel', 'Annuler')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : hasRating ? (
+              // Vue lecture seule
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <StarRating
+                    label={team.tech_rehearsal_rating!.rating_1_label}
+                    rating={team.tech_rehearsal_rating!.rating_1}
+                    readonly={true}
+                  />
+                  <StarRating
+                    label={team.tech_rehearsal_rating!.rating_2_label}
+                    rating={team.tech_rehearsal_rating!.rating_2}
+                    readonly={true}
+                  />
+                  <StarRating
+                    label={team.tech_rehearsal_rating!.rating_3_label}
+                    rating={team.tech_rehearsal_rating!.rating_3}
+                    readonly={true}
+                  />
+                </div>
+                {team.tech_rehearsal_rating?.comments && (
+                  <div className="bg-slate-800/30 rounded-xl p-6">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">{safeTranslate('comments', 'Commentaires')}</label>
+                    <p className="text-gray-300 italic">{team.tech_rehearsal_rating.comments}</p>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );

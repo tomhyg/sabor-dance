@@ -790,6 +790,149 @@ export const translations = {
     progressMissing: 'Manquant',
 
     stillMissingRequiredFields: 'Il manque encore quelques champs requis',
+    
+    create: 'Créer',
+   
+    saving: 'Sauvegarde...',
+   
+
+    // Bénévoles
+    volunteerPlanning: 'Planning Bénévoles',
+    
+
+    // Calendrier - Navigation et vues
+   
+    currentMode: 'Mode actuel',
+    position: 'Position',
+    startFrom: 'Commencer',
+    moveTo: 'Déplacer vers',
+    viewDay: 'Jour',
+    viewFourDays: '4 Jours',
+    viewWeek: 'Semaine',
+    navigationToday: 'Aujourd\'hui',
+    navigationPrevious: 'Précédent',
+    navigationNext: 'Suivant',
+
+    // Jours de la semaine
+    dayMonday: 'Lundi',
+    dayTuesday: 'Mardi',
+    dayWednesday: 'Mercredi',
+    dayThursday: 'Jeudi',
+    dayFriday: 'Vendredi',
+    daySaturday: 'Samedi',
+    daySunday: 'Dimanche',
+
+    // Légende
+    legendEmpty: 'Vide',
+    legendPartial: 'Partiellement rempli',
+    legendFull: 'Complet',
+    legendDraft: 'Brouillon',
+    legendMyShifts: 'Mes créneaux',
+    legendTimeConflict: 'Conflit horaire',
+
+    // Statuts des créneaux
+    shiftStatusDraft: 'Brouillon',
+    shiftStatusLive: 'Publié',
+    shiftStatusFull: 'Complet',
+    shiftStatusCancelled: 'Annulé',
+
+    // Messages d'erreur
+    errorCannotMoveToPast: 'Impossible de déplacer vers une date passée',
+    errorCannotMoveToCurrentPastHour: 'Impossible de déplacer vers une heure passée',
+    errorCannotCreateInPast: 'Impossible de créer dans le passé',
+    errorCannotCreateAtPastHour: 'Impossible de créer à une heure passée',
+    errorMoveError: 'Erreur lors du déplacement',
+    errorCreateError: 'Erreur lors de la création',
+    errorUpdateError: 'Erreur lors de la mise à jour',
+    errorStatusChangeError: 'Erreur lors du changement de statut',
+
+    // Messages de succès
+    successShiftMoved: 'Créneau déplacé avec succès',
+    successShiftCreated: 'Créneau créé avec succès',
+    successShiftUpdated: 'Créneau mis à jour avec succès',
+    successStatusChanged: 'Statut changé avec succès',
+
+    // Création rapide
+    quickCreateTitle: 'Création Rapide',
+    quickCreateTitleField: 'Titre',
+    quickCreatePlaceholder: 'Créneau',
+    quickCreateVolunteers: 'Bénévoles',
+    quickCreateStartMinutes: 'Minutes début',
+    quickCreateDuration: 'Durée',
+    quickCreateDate: 'Date',
+    quickCreateStart: 'Début',
+    quickCreateEnd: 'Fin',
+    quickCreateTotalDuration: 'Durée totale',
+    quickCreateMinutes: 'minutes',
+
+    // Détails du créneau
+    shiftDetailsTitle: 'Détails du créneau',
+    shiftDetailsShiftInfo: 'Informations du créneau',
+    shiftDetailsVolunteerList: 'Liste des bénévoles',
+    shiftDetailsStatistics: 'Statistiques',
+    shiftDetailsAssignments: 'Affectations',
+    shiftDetailsNoVolunteers: 'Aucun bénévole assigné',
+    shiftDetailsAssignedVolunteers: 'bénévoles assignés',
+    shiftDetailsSpotsRemaining: 'places restantes',
+    shiftDetailsFillRate: 'Taux de remplissage',
+    shiftDetailsUrgencyLevel: 'Niveau d\'urgence',
+
+    // Champs
+    fieldDate: 'Date',
+    fieldTime: 'Horaire',
+    fieldStartTime: 'Heure de début',
+    fieldEndTime: 'Heure de fin',
+    fieldMaxVolunteers: 'Nombre max de bénévoles',
+    fieldRoleType: 'Type de rôle',
+    fieldDescription: 'Description',
+    fieldCheckInRequired: 'Check-in requis',
+
+    // Actions
+    actionEdit: 'Modifier',
+    actionPublish: 'Publier',
+    actionDraft: 'Dépublier',
+    actionViewMode: 'Mode consultation',
+    actionEditMode: 'Mode édition',
+
+    // États d'urgence
+    urgencyLow: 'Faible',
+    urgencyMedium: 'Moyen',
+    urgencyHigh: 'Élevé',
+    urgencyCritical: 'Critique',
+
+    // Statuts des bénévoles
+    statusSignedUp: 'Inscrit',
+    statusConfirmed: 'Confirmé',
+    statusCheckedIn: 'Présent',
+    statusNoShow: 'Absent',
+    statusCancelled: 'Annulé',
+
+    // Actions bénévoles
+    actionConfirm: 'Confirmer',
+    actionCheckIn: 'Marquer présent',
+    actionRemove: 'Retirer',
+    actionContact: 'Contacter',
+
+    // Messages de confirmation
+   
+    confirmRemoveVolunteer: 'retirer ce bénévole du créneau ?',
+    confirmConfirmVolunteer: 'confirmer ce bénévole ?',
+    confirmCheckInVolunteer: 'marquer ce bénévole comme présent ?',
+
+    // Temps
+    signedUpAt: 'Inscrit le',
+    checkedInAt: 'Présent depuis',
+    since: 'depuis',
+
+    // Édition de créneau
+    editShiftTitle: 'Modifier le créneau',
+    editFieldTitle: 'Titre',
+    editFieldDescription: 'Description',
+    editFieldStartTime: 'Heure de début',
+    editFieldEndTime: 'Heure de fin',
+    editFieldMaxVolunteers: 'Nombre de bénévoles',
+    editFieldRoleType: 'Type de rôle',
+    editFieldCheckInRequired: 'Check-in requis',
 
     // Loading States
     loadingTeams: 'Chargement des équipes...',
@@ -802,8 +945,8 @@ export const translations = {
     created: 'Créé',
 
   
-
-
+    
+    
     // Error Messages
     errorLoadingTeams: 'Erreur lors du chargement des équipes',
     errorCreatingTeam: 'Erreur lors de la création de l\'équipe',
@@ -1115,6 +1258,157 @@ export const translations = {
     ok: 'OK',
     confirm: 'Confirm',
 
+   
+    create: 'Create',
+   
+    saving: 'Saving...',
+    creating: 'Creating...',
+    updating: 'Updating...',
+    success: 'Success',
+    error: 'Error',
+    
+    // Volunteers
+    volunteerPlanning: 'Volunteer Schedule',
+    volunteer: 'Volunteer',
+    
+    organizer: 'Organizer',
+    admin: 'Administrator',
+
+    // Calendar - Navigation and views
+    today: 'Today',
+    hour: 'Hour',
+    currentMode: 'Current mode',
+    position: 'Position',
+    startFrom: 'Start from',
+    moveTo: 'Move to',
+    viewDay: 'Day',
+    viewFourDays: '4 Days',
+    viewWeek: 'Week',
+    navigationToday: 'Today',
+    navigationPrevious: 'Previous',
+    navigationNext: 'Next',
+
+    // Days of week
+    dayMonday: 'Monday',
+    dayTuesday: 'Tuesday',
+    dayWednesday: 'Wednesday',
+    dayThursday: 'Thursday',
+    dayFriday: 'Friday',
+    daySaturday: 'Saturday',
+    daySunday: 'Sunday',
+
+    // Legend
+    legendEmpty: 'Empty',
+    legendPartial: 'Partially filled',
+    legendFull: 'Full',
+    legendDraft: 'Draft',
+    legendMyShifts: 'My shifts',
+    legendTimeConflict: 'Time conflict',
+
+    // Shift statuses
+    shiftStatusDraft: 'Draft',
+    shiftStatusLive: 'Published',
+    shiftStatusFull: 'Full',
+    shiftStatusCancelled: 'Cancelled',
+
+    // Error messages
+    errorCannotMoveToPast: 'Cannot move to past date',
+    errorCannotMoveToCurrentPastHour: 'Cannot move to past hour',
+    errorCannotCreateInPast: 'Cannot create in the past',
+    errorCannotCreateAtPastHour: 'Cannot create at past hour',
+    errorMoveError: 'Error moving shift',
+    errorCreateError: 'Error creating shift',
+    errorUpdateError: 'Error updating shift',
+    errorStatusChangeError: 'Error changing status',
+
+    // Success messages
+    successShiftMoved: 'Shift moved successfully',
+    successShiftCreated: 'Shift created successfully',
+    successShiftUpdated: 'Shift updated successfully',
+    successStatusChanged: 'Status changed successfully',
+
+    // Quick create
+    quickCreateTitle: 'Quick Create',
+    quickCreateTitleField: 'Title',
+    quickCreatePlaceholder: 'Shift',
+    quickCreateVolunteers: 'Volunteers',
+    quickCreateStartMinutes: 'Start minutes',
+    quickCreateDuration: 'Duration',
+    quickCreateDate: 'Date',
+    quickCreateStart: 'Start',
+    quickCreateEnd: 'End',
+    quickCreateTotalDuration: 'Total duration',
+    quickCreateMinutes: 'minutes',
+
+    // Shift details
+    shiftDetailsTitle: 'Shift Details',
+    shiftDetailsShiftInfo: 'Shift Information',
+    shiftDetailsVolunteerList: 'Volunteer List',
+    shiftDetailsStatistics: 'Statistics',
+    shiftDetailsAssignments: 'Assignments',
+    shiftDetailsNoVolunteers: 'No volunteers assigned yet',
+    shiftDetailsAssignedVolunteers: 'volunteers assigned',
+    shiftDetailsSpotsRemaining: 'spots remaining',
+    shiftDetailsFillRate: 'Fill Rate',
+    shiftDetailsUrgencyLevel: 'Urgency Level',
+
+    // Fields
+    fieldDate: 'Date',
+    fieldTime: 'Time',
+    fieldStartTime: 'Start time',
+    fieldEndTime: 'End time',
+    fieldMaxVolunteers: 'Max volunteers',
+    fieldRoleType: 'Role Type',
+    fieldDescription: 'Description',
+    fieldCheckInRequired: 'Check-in required',
+
+    // Actions
+    actionEdit: 'Edit',
+    actionPublish: 'Publish',
+    actionDraft: 'Unpublish',
+    actionViewMode: 'View Mode',
+    actionEditMode: 'Edit Mode',
+
+    // Urgency states
+    urgencyLow: 'Low',
+    urgencyMedium: 'Medium',
+    urgencyHigh: 'High',
+    urgencyCritical: 'Critical',
+
+    // Volunteer statuses
+    statusSignedUp: 'Signed Up',
+    statusConfirmed: 'Confirmed',
+    statusCheckedIn: 'Checked In',
+    statusNoShow: 'No Show',
+    statusCancelled: 'Cancelled',
+
+    // Volunteer actions
+    actionConfirm: 'Confirm',
+    actionCheckIn: 'Check In',
+    actionRemove: 'Remove',
+    actionContact: 'Contact',
+
+    // Confirmation messages
+    confirmAction: 'Are you sure you want to',
+    confirmRemoveVolunteer: 'remove this volunteer from the shift?',
+    confirmConfirmVolunteer: 'confirm this volunteer?',
+    confirmCheckInVolunteer: 'check in this volunteer?',
+
+    // Time
+    signedUpAt: 'Signed up on',
+    checkedInAt: 'Checked in at',
+    since: 'since',
+
+    // Edit shift
+    editShiftTitle: 'Edit Shift',
+    editFieldTitle: 'Title',
+    editFieldDescription: 'Description',
+    editFieldStartTime: 'Start time',
+    editFieldEndTime: 'End time',
+    editFieldMaxVolunteers: 'Max volunteers',
+    editFieldRoleType: 'Role type',
+    editFieldCheckInRequired: 'Check-in required',
+
     // ================================
     // HOMEPAGE
     // ================================
@@ -1159,11 +1453,11 @@ export const translations = {
     musicFileMissing: 'Music File Missing',
     generalInfo: 'General Information',
     // Roles
-    volunteer: '🙋‍♀️ Volunteer',
+ 
     teamDirector: '💃 Team Director',
-    organizer: '🎯 Organizer',
+ 
     assistant: '👥 Assistant',
-    admin: '⚡ Admin',
+
     artist: '🎨 Artist/Instructor',
     attendee: '🎫 Attendee',
 
@@ -1376,8 +1670,7 @@ export const translations = {
 
     saveChanges: 'Save Changes',
 
-    creating: 'Creating...',
-    updating: 'Updating...',
+    
     submitting: 'Submitting...',
 
     // Completion Progress
@@ -1430,7 +1723,7 @@ export const translations = {
     shiftProgress: 'Shift Progress',
     teamStatus: 'Team Status',
     urgentAlerts: 'Urgent Alerts',
-    today: 'Today',
+   
     thisWeek: 'This Week',
     thisMonth: 'This Month',
     thisYear: 'This Year',
@@ -1755,9 +2048,9 @@ export const translations = {
 
     // Notification types
     info: 'Info',
-    success: 'Success',
+   
     warning: 'Warning',
-    error: 'Error',
+
 
     // System messages
     operationSuccess: 'Operation successful!',
@@ -1774,7 +2067,6 @@ export const translations = {
 
     // Confirmations
     confirmDelete: 'Are you sure you want to delete?',
-    confirmAction: 'Are you sure you want to continue?',
     actionCannotBeUndone: 'This action cannot be undone',
 
     // ================================
@@ -1821,7 +2113,7 @@ export const translations = {
     // Time
     minute: 'minute',
     minutes: 'minutes',
-    hour: 'hour',
+  
     hours: 'hours',
     day: 'day',
     days: 'days',

@@ -1,4 +1,4 @@
-// src/services/teamService.ts - VERSION FINALE COMPLÈTE AVEC BONS NOMS DE BUCKETS
+// src/services/teamService.ts - VERSION FINALE COMPLÈTE AVEC PERFORMERS
 import { supabase } from '../lib/supabase';
 import { PerformanceTeam, TechRehearsalRating } from '../types/PerformanceTeam';
 
@@ -40,12 +40,30 @@ export interface ServiceResponse<T> {
   message?: string;
 }
 
+// 🎯 Interface pour les performers
+export interface Performer {
+  id?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role?: string;
+  position_in_team?: number;
+  is_team_director?: boolean;
+}
+
+// 🎯 Interface pour l'équipe avec performers
+export interface TeamWithPerformers extends PerformanceTeam {
+  performers?: Performer[];
+}
+
 // Fonction pour nettoyer et valider les données avant insertion
 const validateAndCleanTeamData = (teamData: any) => {
   console.log('🧹 Données reçues:', teamData);
   
-  // ✅ FILTRER LES OBJETS FILE qui ne doivent pas aller en base
-  const { music_file, team_photo, ...dataWithoutFiles } = teamData;
+  // ✅ FILTRER LES OBJETS FILE ET PERFORMERS qui ne doivent pas aller en base
+  const { music_file, team_photo, performers, ...dataWithoutFiles } = teamData;
+  
+  console.log('👥 Performers exclus de l\'insertion principale:', performers);
   
   // ✅ Mapper 'professional' vers 'pro' pour la base
   let performance_level = dataWithoutFiles.performance_level;
@@ -77,21 +95,24 @@ const validateAndCleanTeamData = (teamData: any) => {
     group_size: typeof dataWithoutFiles.group_size === 'number' ? dataWithoutFiles.group_size : 4
   };
   
-  console.log('🧹 Données nettoyées (sans fichiers):', cleanedData);
+  console.log('🧹 Données nettoyées (sans fichiers ni performers):', cleanedData);
   return cleanedData;
 };
 
 export const teamService = {
-  // ✅ FONCTION CREATETEAM CORRIGÉE AVEC GESTION DES FICHIERS
-  async createTeam(teamData: any): Promise<ServiceResponse<PerformanceTeam>> {
+  // ✅ FONCTION CREATETEAM AVEC PERFORMERS ET FICHIERS
+  async createTeam(teamData: any): Promise<ServiceResponse<TeamWithPerformers>> {
     try {
       console.log('🎯 Début createTeam avec données:', teamData);
       
-      // ✅ Extraire les fichiers AVANT le nettoyage
+      // ✅ Extraire les données
       const musicFile = teamData.music_file;
       const teamPhoto = teamData.team_photo;
+      const performers = teamData.performers as Performer[];
       
-      // ✅ Nettoyer et valider les données (SANS les fichiers)
+      console.log('👥 Performers reçus:', performers);
+      
+      // ✅ Nettoyer et valider les données (SANS les fichiers ET performers)
       const cleanedData = validateAndCleanTeamData(teamData);
       
       // ✅ Vérifications préalables
@@ -111,7 +132,7 @@ export const teamService = {
         return { success: false, message: 'La ville est requise' };
       }
       
-      // ✅ Préparer les données pour l'insertion (SANS les fichiers)
+      // ✅ Préparer les données pour l'insertion (SANS les fichiers ET performers)
       const insertData = {
         ...cleanedData,
         status: 'draft',
@@ -119,66 +140,88 @@ export const teamService = {
         updated_at: new Date().toISOString()
       };
       
-      console.log('📤 Données à insérer (sans fichiers):', insertData);
+      console.log('📤 Données équipe à insérer:', insertData);
       
-      // ✅ Insertion avec gestion d'erreur détaillée
-      const { data, error } = await supabase
+      // 1️⃣ CRÉER L'ÉQUIPE
+      const { data: teamCreated, error: teamError } = await supabase
         .from('performance_teams')
         .insert([insertData])
         .select()
         .single();
 
-      if (error) {
-        console.error('❌ Erreur Supabase createTeam:', error);
-        console.error('❌ Code erreur:', error.code);
-        console.error('❌ Message erreur:', error.message);
-        console.error('❌ Détails erreur:', error.details);
-        console.error('❌ Hint erreur:', error.hint);
+      if (teamError) {
+        console.error('❌ Erreur Supabase createTeam:', teamError);
+        console.error('❌ Code erreur:', teamError.code);
+        console.error('❌ Message erreur:', teamError.message);
+        console.error('❌ Détails erreur:', teamError.details);
+        console.error('❌ Hint erreur:', teamError.hint);
         
         // Messages d'erreur spécifiques
-        if (error.code === '23505') {
+        if (teamError.code === '23505') {
           return { success: false, message: 'Une équipe avec ce nom existe déjà' };
         }
         
-        if (error.code === '23502') {
-          return { success: false, message: 'Champ obligatoire manquant: ' + (error.details || 'non spécifié') };
+        if (teamError.code === '23502') {
+          return { success: false, message: 'Champ obligatoire manquant: ' + (teamError.details || 'non spécifié') };
         }
         
-        if (error.code === '23514') {
-          return { success: false, message: 'Valeur invalide: ' + (error.details || 'vérifiez les données') };
+        if (teamError.code === '23514') {
+          return { success: false, message: 'Valeur invalide: ' + (teamError.details || 'vérifiez les données') };
         }
         
-        throw error;
+        throw teamError;
       }
 
-      console.log('✅ Équipe créée avec succès:', data);
-      
-      // ✅ Upload des fichiers APRÈS la création de l'équipe
-      if ((musicFile || teamPhoto) && data?.id) {
-        console.log('📁 Upload des fichiers pour l\'équipe:', data.id);
+      console.log('✅ Équipe créée:', teamCreated);
+
+      // 2️⃣ SAUVEGARDER LES PERFORMERS
+      let savedPerformers: Performer[] = [];
+      if (performers && performers.length > 0 && teamCreated?.id) {
+        try {
+          console.log('👥 Sauvegarde des performers...');
+          const performerResult = await this.savePerformers(teamCreated.id, performers);
+          
+          if (performerResult.success && performerResult.data) {
+            savedPerformers = performerResult.data;
+            console.log('✅ Performers sauvegardés:', savedPerformers);
+          } else {
+            console.warn('⚠️ Erreur sauvegarde performers:', performerResult.message);
+          }
+        } catch (performerError) {
+          console.warn('⚠️ Exception sauvegarde performers:', performerError);
+          // Ne pas échouer la création pour les performers
+        }
+      }
+
+      // 3️⃣ UPLOAD DES FICHIERS
+      let finalTeamData = teamCreated;
+      if ((musicFile || teamPhoto) && teamCreated?.id) {
+        console.log('📁 Upload des fichiers pour l\'équipe:', teamCreated.id);
         
         try {
-          const uploadResult = await this.uploadTeamFiles(data.id, {
+          const uploadResult = await this.uploadTeamFiles(teamCreated.id, {
             music_file: musicFile,
             team_photo: teamPhoto
           });
           
           if (uploadResult.success && uploadResult.data) {
             console.log('✅ Fichiers uploadés avec succès');
-            return { success: true, data: uploadResult.data };
+            finalTeamData = uploadResult.data;
           } else {
             console.log('⚠️ Équipe créée mais erreur upload fichiers:', uploadResult.message);
-            // Retourner l'équipe même si l'upload a échoué
-            return { success: true, data };
           }
         } catch (uploadError) {
           console.error('❌ Erreur upload fichiers:', uploadError);
-          // Retourner l'équipe même si l'upload a échoué
-          return { success: true, data };
         }
       }
       
-      return { success: true, data };
+      // 4️⃣ RETOURNER L'ÉQUIPE AVEC LES PERFORMERS
+      const teamWithPerformers: TeamWithPerformers = {
+        ...finalTeamData,
+        performers: savedPerformers
+      };
+      
+      return { success: true, data: teamWithPerformers };
       
     } catch (error) {
       console.error('❌ Exception createTeam:', error);
@@ -188,6 +231,123 @@ export const teamService = {
       return { 
         success: false, 
         message: errorMessage || 'Erreur lors de la création de l\'équipe'
+      };
+    }
+  },
+
+  // 🎯 NOUVELLE FONCTION: Sauvegarder les performers
+  async savePerformers(teamId: string, performers: Performer[]): Promise<ServiceResponse<Performer[]>> {
+    try {
+      console.log('👥 Sauvegarde performers pour équipe:', teamId);
+      console.log('👥 Performers à sauvegarder:', performers);
+      
+      // Préparer les données performers
+      const performersData = performers.map((performer, index) => ({
+        team_id: teamId,
+        name: performer.name,
+        email: performer.email,
+        phone: performer.phone || null,
+        role: performer.role || (index === 0 ? 'director' : 'performer'),
+        position_in_team: performer.position_in_team || (index + 1),
+        is_team_director: performer.is_team_director || (index === 0),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      
+      console.log('📤 Données performers à insérer:', performersData);
+      
+      // Insérer les performers
+      const { data, error } = await supabase
+        .from('team_performers')
+        .insert(performersData)
+        .select();
+      
+      if (error) {
+        console.error('❌ Erreur insertion performers:', error);
+        throw error;
+      }
+      
+      console.log('✅ Performers insérés:', data);
+      return { success: true, data };
+      
+    } catch (error) {
+      console.error('❌ Erreur savePerformers:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // 🎯 NOUVELLE FONCTION: Récupérer une équipe avec ses performers
+  async getTeamWithPerformers(teamId: string): Promise<ServiceResponse<TeamWithPerformers>> {
+    try {
+      console.log('🔍 Récupération équipe avec performers:', teamId);
+      
+      // Récupérer l'équipe
+      const { data: teamData, error: teamError } = await supabase
+        .from('performance_teams')
+        .select('*')
+        .eq('id', teamId)
+        .single();
+      
+      if (teamError) throw teamError;
+      
+      // Récupérer les performers
+      const { data: performersData, error: performersError } = await supabase
+        .from('team_performers')
+        .select('*')
+        .eq('team_id', teamId)
+        .order('position_in_team', { ascending: true });
+      
+      if (performersError) {
+        console.warn('⚠️ Erreur récupération performers:', performersError);
+      }
+      
+      const teamWithPerformers: TeamWithPerformers = {
+        ...teamData,
+        performers: performersData || []
+      };
+      
+      return { success: true, data: teamWithPerformers };
+      
+    } catch (error) {
+      console.error('❌ Erreur getTeamWithPerformers:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
+      };
+    }
+  },
+
+  // 🎯 NOUVELLE FONCTION: Mettre à jour les performers
+  async updatePerformers(teamId: string, performers: Performer[]): Promise<ServiceResponse<Performer[]>> {
+    try {
+      console.log('🔄 Mise à jour performers pour équipe:', teamId);
+      
+      // Supprimer les anciens performers
+      const { error: deleteError } = await supabase
+        .from('team_performers')
+        .delete()
+        .eq('team_id', teamId);
+      
+      if (deleteError) {
+        console.error('❌ Erreur suppression anciens performers:', deleteError);
+        throw deleteError;
+      }
+      
+      // Sauvegarder les nouveaux performers
+      if (performers && performers.length > 0) {
+        return await this.savePerformers(teamId, performers);
+      }
+      
+      return { success: true, data: [] };
+      
+    } catch (error) {
+      console.error('❌ Erreur updatePerformers:', error);
+      return { 
+        success: false, 
+        message: getErrorMessage(error)
       };
     }
   },
@@ -220,6 +380,7 @@ export const teamService = {
 
   async deleteTeam(teamId: string): Promise<ServiceResponse<void>> {
     try {
+      // Les performers seront supprimés automatiquement par CASCADE
       const { error } = await supabase
         .from('performance_teams')
         .delete()
@@ -339,12 +500,12 @@ export const teamService = {
     }
   },
 
-  // ✅ FONCTION uploadTeamFiles CORRIGÉE AVEC LES BONS NOMS DE BUCKETS
+  // ✅ FONCTION uploadTeamFiles AVEC LES BONS NOMS DE BUCKETS
   async uploadTeamFiles(teamId: string, files: { music_file?: File; team_photo?: File }): Promise<ServiceResponse<PerformanceTeam>> {
     try {
       let updateData: any = {};
 
-      // ✅ Upload musique dans le bucket 'team-files' (AVEC TIRET)
+      // ✅ Upload musique dans le bucket 'team-files'
       if (files.music_file) {
         console.log('🎵 Upload fichier musique:', files.music_file.name);
         console.log('🎯 Utilisation du bucket: team-files');
@@ -402,7 +563,7 @@ export const teamService = {
         console.log('✅ Nom de fichier sauvé:', intelligentFileName);
       }
 
-      // ✅ Upload photo dans le bucket 'team-files' (MÊME BUCKET QUE LA MUSIQUE)
+      // ✅ Upload photo dans le bucket 'team-files'
       if (files.team_photo) {
         console.log('📸 Upload photo équipe:', files.team_photo.name);
         console.log('🎯 Utilisation du bucket: team-files');
@@ -410,7 +571,7 @@ export const teamService = {
         const photoFileName = `${teamId}-photo-${Date.now()}.${files.team_photo.name.split('.').pop()}`;
         
         const { data: photoData, error: photoError } = await supabase.storage
-          .from('team-files') // ✅ CHANGÉ: team-files au lieu de profile-images
+          .from('team-files')
           .upload(photoFileName, files.team_photo, {
             cacheControl: '3600',
             upsert: true
@@ -423,7 +584,7 @@ export const teamService = {
         }
 
         const { data: photoUrl } = supabase.storage
-          .from('team-files') // ✅ CHANGÉ: team-files au lieu de profile-images
+          .from('team-files')
           .getPublicUrl(photoFileName);
 
         updateData.team_photo_url = photoUrl.publicUrl;
