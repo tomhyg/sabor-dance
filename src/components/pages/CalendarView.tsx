@@ -19,7 +19,7 @@ interface VolunteerShift {
   max_volunteers: number;
   current_volunteers: number;
   role_type: string;
-  status: 'draft' | 'live' | 'full' | 'cancelled';
+  status: 'draft' | 'live' | 'full' | 'cancelled' | 'unpublished'; // 🎯 AJOUT: 'unpublished'
   check_in_required: boolean;
 }
 
@@ -44,10 +44,12 @@ interface CalendarViewProps {
   setVolunteerSignups: React.Dispatch<React.SetStateAction<VolunteerSignup[]>>;
   onSignUp: (shiftId: string) => void;
   onCreateShift: (shift: Partial<VolunteerShift>) => void;
-  onShiftClick?: (shift: VolunteerShift) => void; // 🎯 NOUVEAU
+  onShiftClick?: (shift: VolunteerShift) => void;
+  userVolunteerHours: number;
+  setUserVolunteerHours: React.Dispatch<React.SetStateAction<number>>;
 }
 
-// Types de vue
+// Types de vue - 🎯 MODIFICATION: Vue 4 jours par défaut selon feedback
 type ViewMode = 'day' | 'fourDays' | 'week';
 
 const CalendarView: React.FC<CalendarViewProps> = ({
@@ -60,15 +62,268 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   setVolunteerSignups,
   onSignUp,
   onCreateShift,
-  onShiftClick // 🎯 NOUVEAU: Callback pour gérer les clics organisateurs
+  onShiftClick,
+  userVolunteerHours,
+  setUserVolunteerHours
 }) => {
   const { translate } = useTranslation(language);
   
+  // 🎯 MODIFICATION: Définition des textes selon langue
+  const txt = {
+    fr: {
+      volunteerPlanning: 'Planification Bénévoles',
+      viewDay: 'Jour',
+      viewFourDays: '4 Jours',
+      viewWeek: 'Semaine',
+      navigationPrevious: 'Précédent',
+      navigationNext: 'Suivant',
+      navigationToday: 'Aujourd\'hui',
+      currentMode: 'Mode actuel',
+      position: 'Position',
+      startFrom: 'Commencer à',
+      hour: 'Heure',
+      today: 'Aujourd\'hui',
+      legendAvailable: 'Disponible',
+      legendPartial: 'Partiellement rempli',
+      legendFull: 'Complet',
+      legendDraft: 'Brouillon',
+      legendMyShifts: 'Mes créneaux',
+      legendTimeConflict: 'Conflit d\'horaire',
+      quickCreateTitle: 'Création Rapide',
+      quickCreateTitleField: 'Titre',
+      quickCreatePlaceholder: 'Créneau',
+      quickCreateVolunteers: 'Bénévoles',
+      quickCreateStartMinutes: 'Minutes de début',
+      quickCreateDuration: 'Durée',
+      quickCreateDate: 'Date',
+      quickCreateStart: 'Début',
+      quickCreateEnd: 'Fin',
+      quickCreateTotalDuration: 'Durée totale',
+      quickCreateMinutes: 'minutes',
+      cancel: 'Annuler',
+      create: 'Créer',
+      creating: 'Création',
+      save: 'Sauvegarder',
+      saving: 'Sauvegarde',
+      shiftDetailsTitle: 'Détails du Créneau',
+      fieldTime: 'Horaire',
+      volunteers: 'Bénévoles',
+      fieldStatus: 'Statut',
+      actionEdit: 'Modifier',
+      actionPublish: 'Publier',
+      actionDraft: 'Dépublier',
+      actionSignUp: 'S\'inscrire',
+      shiftFull: 'Créneau complet',
+      signedUp: 'Vous êtes inscrit',
+      editShiftTitle: 'Modifier le Créneau',
+      editFieldTitle: 'Titre',
+      editFieldDescription: 'Description',
+      editFieldStartTime: 'Heure de début',
+      editFieldEndTime: 'Heure de fin',
+      editFieldMaxVolunteers: 'Nombre max de bénévoles',
+      editFieldRoleType: 'Type de rôle',
+      editFieldCheckInRequired: 'Pointage requis',
+      moveTo: 'Déplacer vers',
+      shiftStatusDraft: 'Brouillon',
+      shiftStatusLive: 'Publié',
+      shiftStatusFull: 'Complet',
+      shiftStatusCancelled: 'Annulé',
+      errorCannotMoveToPast: 'Impossible de déplacer dans le passé',
+      errorCannotMoveToCurrentPastHour: 'Impossible de déplacer à une heure passée',
+      errorCannotCreateInPast: 'Impossible de créer dans le passé',
+      errorCannotCreateAtPastHour: 'Impossible de créer à une heure passée',
+      errorCreateError: 'Erreur lors de la création',
+      errorUpdateError: 'Erreur lors de la mise à jour',
+      errorMoveError: 'Erreur lors du déplacement',
+      errorStatusChangeError: 'Erreur lors du changement de statut',
+      successShiftCreated: 'Créneau créé avec succès',
+      successShiftUpdated: 'Créneau mis à jour avec succès',
+      // 🎯 NOUVEAU: Messages de conflit d'horaires
+      overlapDetected: 'Conflit d\'horaire détecté !',
+      overlapWarning: 'Ce créneau chevauche avec vos inscriptions existantes',
+      overlapContinue: 'Continuer quand même ?',
+      hourLimitWarning: 'Vous dépassez la limite de 9 heures recommandée',
+      hourLimitContinue: 'Voulez-vous continuer ?',
+      // 🎯 NOUVEAU: Messages simplifiés pour statuts
+      available: 'Disponible',
+      full: 'Complet',
+      signedUpStatus: 'Inscrit',
+      timeConflict: 'Conflit horaire',
+      // 🎯 NOUVEAU: Créneaux parallèles
+      createParallelShift: 'Créer un créneau parallèle'
+    },
+    en: {
+      volunteerPlanning: 'Volunteer Planning',
+      viewDay: 'Day',
+      viewFourDays: '4 Days',
+      viewWeek: 'Week',
+      navigationPrevious: 'Previous',
+      navigationNext: 'Next',
+      navigationToday: 'Today',
+      currentMode: 'Current mode',
+      position: 'Position',
+      startFrom: 'Start from',
+      hour: 'Hour',
+      today: 'Today',
+      legendAvailable: 'Available',
+      legendPartial: 'Partially filled',
+      legendFull: 'Full',
+      legendDraft: 'Draft',
+      legendMyShifts: 'My shifts',
+      legendTimeConflict: 'Time conflict',
+      quickCreateTitle: 'Quick Create',
+      quickCreateTitleField: 'Title',
+      quickCreatePlaceholder: 'Shift',
+      quickCreateVolunteers: 'Volunteers',
+      quickCreateStartMinutes: 'Start minutes',
+      quickCreateDuration: 'Duration',
+      quickCreateDate: 'Date',
+      quickCreateStart: 'Start',
+      quickCreateEnd: 'End',
+      quickCreateTotalDuration: 'Total duration',
+      quickCreateMinutes: 'minutes',
+      cancel: 'Cancel',
+      create: 'Create',
+      creating: 'Creating',
+      save: 'Save',
+      saving: 'Saving',
+      shiftDetailsTitle: 'Shift Details',
+      fieldTime: 'Time',
+      volunteers: 'Volunteers',
+      fieldStatus: 'Status',
+      actionEdit: 'Edit',
+      actionPublish: 'Publish',
+      actionDraft: 'Unpublish',
+      actionSignUp: 'Sign Up',
+      shiftFull: 'Shift is full',
+      signedUp: 'You are signed up',
+      editShiftTitle: 'Edit Shift',
+      editFieldTitle: 'Title',
+      editFieldDescription: 'Description',
+      editFieldStartTime: 'Start time',
+      editFieldEndTime: 'End time',
+      editFieldMaxVolunteers: 'Max volunteers',
+      editFieldRoleType: 'Role type',
+      editFieldCheckInRequired: 'Check-in required',
+      moveTo: 'Move to',
+      shiftStatusDraft: 'Draft',
+      shiftStatusLive: 'Live',
+      shiftStatusFull: 'Full',
+      shiftStatusCancelled: 'Cancelled',
+      errorCannotMoveToPast: 'Cannot move to past date',
+      errorCannotMoveToCurrentPastHour: 'Cannot move to past hour',
+      errorCannotCreateInPast: 'Cannot create in the past',
+      errorCannotCreateAtPastHour: 'Cannot create at past hour',
+      errorCreateError: 'Error creating shift',
+      errorUpdateError: 'Error updating shift',
+      errorMoveError: 'Error moving shift',
+      errorStatusChangeError: 'Error changing status',
+      successShiftCreated: 'Shift created successfully',
+      successShiftUpdated: 'Shift updated successfully',
+      // 🎯 NOUVEAU: Messages de conflit d'horaires
+      overlapDetected: 'Schedule conflict detected!',
+      overlapWarning: 'This shift overlaps with your existing signups',
+      overlapContinue: 'Continue anyway?',
+      hourLimitWarning: 'You exceed the recommended 9-hour limit',
+      hourLimitContinue: 'Do you want to continue?',
+      // 🎯 NOUVEAU: Messages simplifiés pour statuts
+      available: 'Available',
+      full: 'Full',
+      signedUpStatus: 'Signed Up',
+      timeConflict: 'Time Conflict',
+      // 🎯 NOUVEAU: Créneaux parallèles
+      createParallelShift: 'Create parallel shift'
+    },
+    es: {
+      volunteerPlanning: 'Planificación de Voluntarios',
+      viewDay: 'Día',
+      viewFourDays: '4 Días',
+      viewWeek: 'Semana',
+      navigationPrevious: 'Anterior',
+      navigationNext: 'Siguiente',
+      navigationToday: 'Hoy',
+      currentMode: 'Modo actual',
+      position: 'Posición',
+      startFrom: 'Comenzar desde',
+      hour: 'Hora',
+      today: 'Hoy',
+      legendAvailable: 'Disponible',
+      legendPartial: 'Parcialmente lleno',
+      legendFull: 'Completo',
+      legendDraft: 'Borrador',
+      legendMyShifts: 'Mis turnos',
+      legendTimeConflict: 'Conflicto de horario',
+      quickCreateTitle: 'Creación Rápida',
+      quickCreateTitleField: 'Título',
+      quickCreatePlaceholder: 'Turno',
+      quickCreateVolunteers: 'Voluntarios',
+      quickCreateStartMinutes: 'Minutos de inicio',
+      quickCreateDuration: 'Duración',
+      quickCreateDate: 'Fecha',
+      quickCreateStart: 'Inicio',
+      quickCreateEnd: 'Fin',
+      quickCreateTotalDuration: 'Duración total',
+      quickCreateMinutes: 'minutos',
+      cancel: 'Cancelar',
+      create: 'Crear',
+      creating: 'Creando',
+      save: 'Guardar',
+      saving: 'Guardando',
+      shiftDetailsTitle: 'Detalles del Turno',
+      fieldTime: 'Horario',
+      volunteers: 'Voluntarios',
+      fieldStatus: 'Estado',
+      actionEdit: 'Editar',
+      actionPublish: 'Publicar',
+      actionDraft: 'Despublicar',
+      actionSignUp: 'Inscribirse',
+      shiftFull: 'Turno completo',
+      signedUp: 'Estás inscrito',
+      editShiftTitle: 'Editar Turno',
+      editFieldTitle: 'Título',
+      editFieldDescription: 'Descripción',
+      editFieldStartTime: 'Hora de inicio',
+      editFieldEndTime: 'Hora de fin',
+      editFieldMaxVolunteers: 'Máximo voluntarios',
+      editFieldRoleType: 'Tipo de rol',
+      editFieldCheckInRequired: 'Check-in requerido',
+      moveTo: 'Mover a',
+      shiftStatusDraft: 'Borrador',
+      shiftStatusLive: 'Publicado',
+      shiftStatusFull: 'Completo',
+      shiftStatusCancelled: 'Cancelado',
+      errorCannotMoveToPast: 'No se puede mover al pasado',
+      errorCannotMoveToCurrentPastHour: 'No se puede mover a una hora pasada',
+      errorCannotCreateInPast: 'No se puede crear en el pasado',
+      errorCannotCreateAtPastHour: 'No se puede crear en una hora pasada',
+      errorCreateError: 'Error al crear turno',
+      errorUpdateError: 'Error al actualizar turno',
+      errorMoveError: 'Error al mover turno',
+      errorStatusChangeError: 'Error al cambiar estado',
+      successShiftCreated: 'Turno creado exitosamente',
+      successShiftUpdated: 'Turno actualizado exitosamente',
+      // 🎯 NOUVEAU: Messages de conflit d'horaires
+      overlapDetected: '¡Conflicto de horario detectado!',
+      overlapWarning: 'Este turno se superpone con tus inscripciones existentes',
+      overlapContinue: '¿Continuar de todos modos?',
+      hourLimitWarning: 'Excedes el límite recomendado de 9 horas',
+      hourLimitContinue: '¿Quieres continuar?',
+      // 🎯 NOUVEAU: Messages simplifiés pour statuts
+      available: 'Disponible',
+      full: 'Completo',
+      signedUpStatus: 'Inscrito',
+      timeConflict: 'Conflicto de Horario',
+      // 🎯 NOUVEAU: Créneaux parallèles
+      createParallelShift: 'Crear turno paralelo'
+    }
+  };
+
+  const currentTxt = txt[language];
+  
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  // État pour le mode d'affichage
-  const [viewMode, setViewMode] = useState<ViewMode>('week');
-  // État pour le jour de début en vue 4 jours
-  const [fourDaysStartIndex, setFourDaysStartIndex] = useState(0); // 0 = lundi, 1 = mardi, etc.
+  // 🎯 MODIFICATION: Vue 4 jours par défaut selon feedback
+  const [viewMode, setViewMode] = useState<ViewMode>('fourDays');
+  const [fourDaysStartIndex, setFourDaysStartIndex] = useState(0);
   
   const [draggedShift, setDraggedShift] = useState<VolunteerShift | null>(null);
   const [draggedOverSlot, setDraggedOverSlot] = useState<{day: number, hour: number, minutes?: number} | null>(null);
@@ -91,11 +346,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [quickCreateData, setQuickCreateData] = useState({
     title: '',
     max_volunteers: 1,
-    duration: 120, // 🎯 NOUVEAU: Durée en minutes par défaut (2h)
-    startMinutes: 0 // 🎯 NOUVEAU: Minutes de début (0, 15, 30, 45)
+    duration: 120,
+    startMinutes: 0
   });
 
-  // 🎯 NOUVEAU: Options de minutes
+  // Options de minutes
   const minuteOptions = [
     { value: 0, label: ':00' },
     { value: 15, label: ':15' },
@@ -103,7 +358,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     { value: 45, label: ':45' }
   ];
 
-  // 🎯 NOUVEAU: Options de durée en minutes
+  // Options de durée en minutes
   const durationOptions = [
     { value: 30, label: '30 min' },
     { value: 45, label: '45 min' },
@@ -115,11 +370,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     { value: 240, label: '4h00' }
   ];
 
-  // Fonction pour vérifier les conflits d'horaires avant l'affichage
-  const checkOverlapForDisplay = (targetShift: VolunteerShift, volunteerId: string): boolean => {
+  // 🎯 MODIFICATION: Fonction pour vérifier les conflits d'horaires simplifiée
+  const checkTimeConflict = (targetShift: VolunteerShift, volunteerId: string): boolean => {
     if (currentUser?.role !== 'volunteer' || !volunteerId) return false;
 
-    // Récupérer les inscriptions actives du bénévole
     const activeSignups = volunteerSignups.filter(signup => 
       signup.volunteer_id === volunteerId && 
       signup.status !== 'cancelled'
@@ -129,15 +383,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const existingShift = volunteerShifts.find(s => s.id === signup.shift_id);
       if (!existingShift || existingShift.shift_date !== targetShift.shift_date) return false;
 
-      // Convertir les heures en minutes pour la comparaison
       const targetStart = timeToMinutes(targetShift.start_time);
       const targetEnd = timeToMinutes(targetShift.end_time);
       const existingStart = timeToMinutes(existingShift.start_time);
       const existingEnd = timeToMinutes(existingShift.end_time);
 
-      // Vérifier le chevauchement
       return targetStart < existingEnd && targetEnd > existingStart;
     });
+  };
+
+  // 🎯 NOUVEAU: Fonction pour vérifier la limite d'heures
+  const checkHourLimit = (shiftId: string): boolean => {
+    if (currentUser?.role !== 'volunteer') return false;
+    
+    const targetShift = volunteerShifts.find(s => s.id === shiftId);
+    if (!targetShift) return false;
+    
+    const shiftDuration = calculateShiftDuration(targetShift.start_time, targetShift.end_time);
+    const totalHours = userVolunteerHours + shiftDuration;
+    
+    return totalHours > 9;
   };
 
   // Fonction utilitaire pour convertir l'heure en minutes
@@ -146,8 +411,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return hours * 60 + minutes;
   };
 
+  // 🎯 NOUVEAU: Fonction pour calculer la durée d'un shift
+  const calculateShiftDuration = (startTime: string, endTime: string): number => {
+    const start = new Date(`2000-01-01T${startTime}`);
+    const end = new Date(`2000-01-01T${endTime}`);
+    return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  };
+
   // Configuration du calendrier
-  const hoursRange = Array.from({ length: 18 }, (_, i) => i + 6); // 6h à 23h
+  const hoursRange = Array.from({ length: 18 }, (_, i) => i + 6);
   
   // Fonction pour obtenir les jours à afficher selon le mode
   const getDisplayDays = () => {
@@ -156,21 +428,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     
     switch (viewMode) {
       case 'day':
-        // Vue jour : jour actuel ou jour sélectionné
         return [currentWeek];
       case 'fourDays':
-        // Vue 4 jours : 4 jours consécutifs à partir de l'index sélectionné
         return week.slice(fourDaysStartIndex, fourDaysStartIndex + 4);
       case 'week':
       default:
-        // Vue semaine : toute la semaine
         return week;
     }
   };
 
   // Jours de la semaine traduits
   const daysOfWeek = [
-    translate('dayMonday') || 'Lundi',
+    translate('dayMonday') || currentTxt.today,
     translate('dayTuesday') || 'Mardi',
     translate('dayWednesday') || 'Mercredi',
     translate('dayThursday') || 'Jeudi',
@@ -184,7 +453,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const week: Date[] = [];
     const startOfWeek = new Date(date);
     const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Lundi = premier jour
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
     startOfWeek.setDate(diff);
     
     for (let i = 0; i < 7; i++) {
@@ -199,21 +468,45 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const displayDates = getDisplayDays();
   const weekDates = getWeekDates(currentWeek);
 
+  // 🎯 MODIFICATION: Navigation améliorée pour afficher automatiquement la première date avec un slot disponible
+  const findFirstAvailableShiftDate = (): Date | null => {
+    const today = new Date();
+    const availableShifts = volunteerShifts.filter(shift => {
+      const shiftDate = new Date(shift.shift_date);
+      return shiftDate >= today && shift.status === 'live' && shift.current_volunteers < shift.max_volunteers;
+    });
+
+    if (availableShifts.length === 0) return null;
+
+    const sortedShifts = availableShifts.sort((a, b) => 
+      new Date(a.shift_date).getTime() - new Date(b.shift_date).getTime()
+    );
+
+    return new Date(sortedShifts[0].shift_date);
+  };
+
+  // 🎯 MODIFICATION: Initialiser avec la première date disponible
+  useEffect(() => {
+    if (currentUser?.role === 'volunteer') {
+      const firstAvailableDate = findFirstAvailableShiftDate();
+      if (firstAvailableDate) {
+        setCurrentWeek(firstAvailableDate);
+      }
+    }
+  }, [volunteerShifts, currentUser]);
+
   // Navigation
   const goToPrevious = () => {
     const newDate = new Date(currentWeek);
     if (viewMode === 'day') {
       newDate.setDate(currentWeek.getDate() - 1);
     } else if (viewMode === 'fourDays') {
-      // En vue 4 jours, déplacer de 4 jours OU décaler l'index de début
       if (fourDaysStartIndex > 0) {
-        // Si on peut encore décaler dans la semaine actuelle
         setFourDaysStartIndex(prev => Math.max(0, prev - 1));
-        return; // Ne pas changer la semaine
+        return;
       } else {
-        // Sinon, aller à la semaine précédente et se positionner à la fin
         newDate.setDate(currentWeek.getDate() - 7);
-        setFourDaysStartIndex(3); // Commencer à jeudi de la semaine précédente
+        setFourDaysStartIndex(3);
       }
     } else {
       newDate.setDate(currentWeek.getDate() - 7);
@@ -226,15 +519,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (viewMode === 'day') {
       newDate.setDate(currentWeek.getDate() + 1);
     } else if (viewMode === 'fourDays') {
-      // En vue 4 jours, déplacer de 4 jours OU décaler l'index de début
-      if (fourDaysStartIndex < 3) { // 3 car on va jusqu'à l'index 6 (dimanche)
-        // Si on peut encore décaler dans la semaine actuelle
+      if (fourDaysStartIndex < 3) {
         setFourDaysStartIndex(prev => Math.min(3, prev + 1));
-        return; // Ne pas changer la semaine
+        return;
       } else {
-        // Sinon, aller à la semaine suivante et se positionner au début
         newDate.setDate(currentWeek.getDate() + 7);
-        setFourDaysStartIndex(0); // Commencer à lundi de la semaine suivante
+        setFourDaysStartIndex(0);
       }
     } else {
       newDate.setDate(currentWeek.getDate() + 7);
@@ -243,8 +533,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   const goToToday = () => {
-    setCurrentWeek(new Date());
-    // Réinitialiser l'index pour la vue 4 jours
+    // 🎯 MODIFICATION: Aller à la première date disponible pour les bénévoles
+    if (currentUser?.role === 'volunteer') {
+      const firstAvailableDate = findFirstAvailableShiftDate();
+      if (firstAvailableDate) {
+        setCurrentWeek(firstAvailableDate);
+      } else {
+        setCurrentWeek(new Date());
+      }
+    } else {
+      setCurrentWeek(new Date());
+    }
+    
     if (viewMode === 'fourDays') {
       setFourDaysStartIndex(0);
     }
@@ -265,7 +565,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const shiftStart = parseInt(shift.start_time.replace(':', ''));
       const shiftEnd = parseInt(shift.end_time.replace(':', ''));
 
-      // Vérifier si ce créneau chevauche avec le groupe actuel
       const overlapsWithCurrent = currentGroup.some(groupShift => {
         const groupStart = parseInt(groupShift.start_time.replace(':', ''));
         const groupEnd = parseInt(groupShift.end_time.replace(':', ''));
@@ -334,7 +633,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     });
   };
 
-  // 🎯 NOUVEAU: Obtenir les créneaux pour un slot avec gestion des chevauchements et quarts d'heure
+  // Obtenir les créneaux pour un slot avec gestion des chevauchements et quarts d'heure
   const getShiftsForSlot = (date: Date, hour: number) => {
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -371,28 +670,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const endHour = parseInt(shift.end_time.split(':')[0]);
       const endMinute = parseInt(shift.end_time.split(':')[1]);
       
-      // 🎯 NOUVEAU: Inclure le créneau si l'heure de début est dans cette heure
-      // OU si la fin dépasse dans cette heure
       return (startHour === hour) || (startHour < hour && (endHour > hour || (endHour === hour && endMinute > 0)));
     });
 
     return shiftsForDate;
   };
 
-  // 🎯 NOUVEAU: Calculer la hauteur d'un créneau en fonction de sa durée (avec gestion des minutes)
+  // Calculer la hauteur d'un créneau en fonction de sa durée
   const getShiftHeight = (shift: VolunteerShift) => {
     const [startHour, startMinute] = shift.start_time.split(':').map(Number);
     const [endHour, endMinute] = shift.end_time.split(':').map(Number);
     
     const durationInMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-    return (durationInMinutes / 60) * 64; // 64px par heure
+    return (durationInMinutes / 60) * 64;
   };
 
-  // 🎯 NOUVEAU: Calculer la position verticale d'un créneau (avec gestion des minutes)
+  // Calculer la position verticale d'un créneau
   const getShiftTop = (shift: VolunteerShift) => {
     const [startHour, startMinute] = shift.start_time.split(':').map(Number);
     
-    return (startMinute * 64) / 60; // 64px par heure, proportionnel aux minutes
+    return (startMinute * 64) / 60;
   };
 
   // Calculer la position horizontale pour les créneaux qui se chevauchent
@@ -441,53 +738,63 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     return shift.status === 'live' && !isShiftFull(shift);
   };
 
-  // Fonction pour obtenir le statut traduit
-  const getLocalizedShiftStatus = (status: string): string => {
-    switch (status) {
+  // Fonction pour obtenir le statut traduit simplifiée
+  const getLocalizedShiftStatus = (shift: VolunteerShift): string => {
+    // 🎯 MODIFICATION: Statuts simplifiés selon feedback
+    if (currentUser?.role === 'volunteer') {
+      const isSignedUp = isUserSignedUpForShift(shift.id);
+      const hasConflict = checkTimeConflict(shift, currentUser.id);
+      
+      if (isSignedUp) return currentTxt.signedUpStatus;
+      if (hasConflict) return currentTxt.timeConflict;
+      if (shift.current_volunteers >= shift.max_volunteers) return currentTxt.full;
+      return currentTxt.available;
+    }
+    
+    // Pour les organisateurs, garder les statuts détaillés
+    switch (shift.status) {
       case 'draft':
-        return translate('shiftStatusDraft') || 'Draft';
+        return currentTxt.shiftStatusDraft;
       case 'live':
-        return translate('shiftStatusLive') || 'Live';
+        return currentTxt.shiftStatusLive;
       case 'full':
-        return translate('shiftStatusFull') || 'Full';
+        return currentTxt.shiftStatusFull;
       case 'cancelled':
-        return translate('shiftStatusCancelled') || 'Cancelled';
+        return currentTxt.shiftStatusCancelled;
       default:
-        return status;
+        return shift.status;
     }
   };
 
-  // Couleur selon le status du créneau et si l'utilisateur est inscrit + gestion des conflits
+  // 🎯 MODIFICATION: Couleurs simplifiées selon feedback
   const getShiftColor = (shift: VolunteerShift) => {
-    const fillRate = shift.current_volunteers / shift.max_volunteers;
-    
-    const isUserSignedUp = currentUser?.role === 'volunteer' && 
-                          currentUser?.id && 
-                          volunteerSignups && 
-                          Array.isArray(volunteerSignups) &&
-                          volunteerSignups.some(signup => 
-                            signup.shift_id === shift.id && 
-                            signup.volunteer_id === currentUser.id &&
-                            signup.status !== 'cancelled'
-                          );
+    if (currentUser?.role === 'volunteer') {
+      const isUserSignedUp = isUserSignedUpForShift(shift.id);
+      const hasTimeConflict = checkTimeConflict(shift, currentUser.id);
+      
+      if (shift.status === 'cancelled') return 'bg-gray-500/20 border-gray-500/40 text-gray-400';
+      if (shift.status === 'draft') return 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300';
+      
+      if (isUserSignedUp) {
+        return 'bg-gradient-to-r from-blue-500 to-indigo-600 border-2 border-blue-300 text-white shadow-xl shadow-blue-500/40 ring-4 ring-blue-400/30';
+      }
 
-    // Vérifier les conflits d'horaires pour les bénévoles
-    const hasOverlapConflict = currentUser?.role === 'volunteer' && 
-                              currentUser?.id && 
-                              !isUserSignedUp &&
-                              checkOverlapForDisplay(shift, currentUser.id);
+      if (hasTimeConflict) {
+        return 'bg-gradient-to-r from-red-500/30 to-orange-500/30 border-2 border-red-400/60 text-red-200 shadow-lg shadow-red-500/20 ring-2 ring-red-400/40';
+      }
+      
+      if (shift.current_volunteers >= shift.max_volunteers) {
+        return 'bg-green-500/20 border-green-500/40 text-green-300';
+      }
+      
+      return 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300';
+    }
+    
+    // Pour les organisateurs, garder la logique existante
+    const fillRate = shift.current_volunteers / shift.max_volunteers;
     
     if (shift.status === 'cancelled') return 'bg-gray-500/20 border-gray-500/40 text-gray-400';
     if (shift.status === 'draft') return 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300';
-    
-    if (isUserSignedUp) {
-      return 'bg-gradient-to-r from-blue-500 to-indigo-600 border-2 border-blue-300 text-white shadow-xl shadow-blue-500/40 ring-4 ring-blue-400/30';
-    }
-
-    // Afficher les créneaux en conflit avec une couleur spéciale
-    if (hasOverlapConflict) {
-      return 'bg-gradient-to-r from-red-500/30 to-orange-500/30 border-2 border-red-400/60 text-red-200 shadow-lg shadow-red-500/20 ring-2 ring-red-400/40';
-    }
     
     if (shift.status === 'full' || fillRate >= 1) return 'bg-green-500/20 border-green-500/40 text-green-300';
     
@@ -495,6 +802,42 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     if (fillRate < 0.5) return 'bg-orange-500/20 border-orange-500/40 text-orange-300';
     if (fillRate < 1) return 'bg-lime-500/20 border-lime-500/40 text-lime-300';
     return 'bg-green-500/20 border-green-500/40 text-green-300';
+  };
+
+  // 🎯 NOUVEAU: Fonction pour créer un créneau parallèle
+  const handleCreateParallelShift = (existingShift: VolunteerShift) => {
+    // Récupérer les infos du créneau existant pour pré-remplir
+    const shiftDate = new Date(existingShift.shift_date);
+    const year = shiftDate.getFullYear();
+    const month = (shiftDate.getMonth() + 1).toString().padStart(2, '0');
+    const dayStr = shiftDate.getDate().toString().padStart(2, '0');
+    const dateStr = `${year}-${month}-${dayStr}`;
+    
+    const startHour = parseInt(existingShift.start_time.split(':')[0]);
+    const startMinutes = parseInt(existingShift.start_time.split(':')[1]);
+    
+    // Trouver l'index du jour dans displayDates
+    const dayIndex = displayDates.findIndex(date => {
+      const displayYear = date.getFullYear();
+      const displayMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+      const displayDay = date.getDate().toString().padStart(2, '0');
+      const displayDateStr = `${displayYear}-${displayMonth}-${displayDay}`;
+      return displayDateStr === dateStr;
+    });
+    
+    if (dayIndex !== -1) {
+      setSelectedSlot({ 
+        day: dayIndex, 
+        hour: startHour, 
+        date: dateStr,
+        startMinutes: startMinutes
+      });
+      setQuickCreateData(prev => ({
+        ...prev,
+        startMinutes: startMinutes
+      }));
+      setShowCreateModal(true);
+    }
   };
 
   // Drag & Drop pour organisateurs
@@ -505,7 +848,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  // 🎯 NOUVEAU: Drag & Drop amélioré avec gestion des quarts d'heure
   const handleDragOver = (e: React.DragEvent, dayIndex: number, hour: number, minutes: number = 0) => {
     if (!draggedShift) return;
     e.preventDefault();
@@ -518,7 +860,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setDraggedOverSlot(null);
   };
 
-  // 🎯 NOUVEAU: DRAG & DROP avec Supabase et gestion des quarts d'heure
+  // DRAG & DROP avec Supabase et gestion des quarts d'heure
   const handleDrop = async (e: React.DragEvent, dayIndex: number, hour: number, minutes: number = 0) => {
     e.preventDefault();
     if (!draggedShift) return;
@@ -539,30 +881,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const todayParis = new Date(nowParis.toDateString());
     
     if (newDateParis < todayParis) {
-      alert(translate('errorCannotMoveToPast') || 'Cannot move to past date');
+      alert(currentTxt.errorCannotMoveToPast);
       setDraggedShift(null);
       setDraggedOverSlot(null);
       return;
     }
     
-    // 🎯 NOUVEAU: Vérification avec les minutes
     const newTimeInMinutes = hour * 60 + minutes;
     const currentTimeInMinutes = nowParis.getHours() * 60 + nowParis.getMinutes();
     
     if (newDateStr === currentDateStr && newTimeInMinutes < currentTimeInMinutes) {
-      alert(translate('errorCannotMoveToCurrentPastHour') || 'Cannot move to past hour');
+      alert(currentTxt.errorCannotMoveToCurrentPastHour);
       setDraggedShift(null);
       setDraggedOverSlot(null);
       return;
     }
     
-    // 🎯 NOUVEAU: Calculer la durée du shift original
     const [originalStartHour, originalStartMinute] = draggedShift.start_time.split(':').map(Number);
     const [originalEndHour, originalEndMinute] = draggedShift.end_time.split(':').map(Number);
     
     const originalDurationMinutes = (originalEndHour * 60 + originalEndMinute) - (originalStartHour * 60 + originalStartMinute);
     
-    // 🎯 NOUVEAU: Calculer les nouvelles heures avec les minutes
     const newStartTimeMinutes = hour * 60 + minutes;
     const newEndTimeMinutes = newStartTimeMinutes + originalDurationMinutes;
     
@@ -578,21 +917,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
 
     try {
-      console.log('🔄 Déplacement shift vers quart d\'heure:', draggedShift.id, updates);
-      
       const { error } = await volunteerService.updateShift(draggedShift.id, updates);
       
       if (error) {
-        console.error('❌ Erreur déplacement:', error);
-        alert(`${translate('errorMoveError') || 'Error moving shift'}: ${error.message}`);
+        alert(`${currentTxt.errorMoveError}: ${error.message}`);
         setDraggedShift(null);
         setDraggedOverSlot(null);
         return;
       }
 
-      console.log('✅ Shift déplacé avec succès vers quart d\'heure');
-
-      // Mettre à jour l'état local
       setVolunteerShifts(shifts =>
         shifts.map(shift =>
           shift.id === draggedShift.id
@@ -602,15 +935,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       );
 
     } catch (error) {
-      console.error('❌ Erreur catch déplacement:', error);
-      alert(`${translate('errorMoveError') || 'Error moving shift'}: ${getErrorMessage(error)}`);
+      alert(`${currentTxt.errorMoveError}: ${getErrorMessage(error)}`);
     }
 
     setDraggedShift(null);
     setDraggedOverSlot(null);
   };
 
-  // 🎯 NOUVEAU: Calculer l'heure de fin basée sur la durée en minutes
+  // Calculer l'heure de fin basée sur la durée en minutes
   const calculateEndTime = (startHour: number, startMinutes: number, durationMinutes: number) => {
     const totalStartMinutes = startHour * 60 + startMinutes;
     const totalEndMinutes = totalStartMinutes + durationMinutes;
@@ -625,7 +957,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   };
 
-  // 🎯 MODIFIER: Gestion des clics sur les créneaux avec support du callback organisateur
+  // 🎯 MODIFICATION: Gestion des clics sur les créneaux améliorée avec vérifications
   const handleSlotClick = (dayIndex: number, hour: number, quarterHour: number | null = null) => {
     const date = displayDates[dayIndex];
     const existingShifts = getShiftsForSlot(date, hour);
@@ -634,19 +966,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       if (existingShifts.length > 0 && quarterHour === null) {
         const shift = existingShifts[0];
         if (shift.status === 'live') {
-          // Vérifier le conflit avant d'afficher les détails
-          const hasOverlapConflict = checkOverlapForDisplay(shift, currentUser.id);
+          const hasTimeConflict = checkTimeConflict(shift, currentUser.id);
           const isAlreadySignedUp = isUserSignedUpForShift(shift.id);
           
-          if (hasOverlapConflict && !isAlreadySignedUp) {
-            // Afficher une alerte pour informer du conflit
-            const conflictMessage = language === 'fr' 
-              ? `⚠️ Attention: Ce créneau chevauche avec vos inscriptions existantes. Vous pouvez consulter les détails mais l'inscription pourrait créer un conflit d'horaires.`
-              : language === 'es'
-              ? `⚠️ Atención: Este turno se superpone con tus inscripciones existentes. Puedes consultar los detalles pero la inscripción podría crear un conflicto de horarios.`
-              : `⚠️ Warning: This shift overlaps with your existing signups. You can view details but signup may create scheduling conflicts.`;
-            
-            if (confirm(`${conflictMessage}\n\nVoulez-vous continuer? / ¿Quieres continuar? / Do you want to continue?`)) {
+          if (hasTimeConflict && !isAlreadySignedUp) {
+            const conflictMessage = `⚠️ ${currentTxt.overlapWarning}`;
+            if (confirm(`${conflictMessage}\n\n${currentTxt.overlapContinue}`)) {
               setShowShiftDetails(shift);
             }
           } else {
@@ -674,17 +999,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     const todayParis = new Date(nowParis.toDateString());
     
     if (selectedDateParis < todayParis) {
-      alert(translate('errorCannotCreateInPast') || 'Cannot create in the past');
+      alert(currentTxt.errorCannotCreateInPast);
       return;
     }
     
     if (dateStr === currentDateStr && hour < nowParis.getHours()) {
-      alert(translate('errorCannotCreateAtPastHour') || 'Cannot create at past hour');
+      alert(currentTxt.errorCannotCreateAtPastHour);
       return;
     }
     
     if (existingShifts.length > 0 && quarterHour === null) {
-      // 🎯 NOUVEAU: Utiliser le callback pour les organisateurs
       if (onShiftClick) {
         onShiftClick(existingShifts[0]);
       } else {
@@ -693,37 +1017,33 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       return;
     }
 
-    // 🎯 NOUVEAU: Définir les minutes de début selon le clic
     const startMinutes = quarterHour !== null ? quarterHour : 0;
     
     setSelectedSlot({ 
       day: dayIndex, 
       hour, 
       date: dateStr,
-      startMinutes // 🎯 NOUVEAU: Stocker les minutes de début
+      startMinutes
     });
     setQuickCreateData(prev => ({
       ...prev,
-      startMinutes // 🎯 NOUVEAU: Mettre à jour les minutes dans le formulaire
+      startMinutes
     }));
     setShowCreateModal(true);
   };
 
-  // CRÉATION avec Supabase et messages traduits
+  // 🎯 MODIFICATION: Création avec auto-publication selon feedback
   const createQuickShift = async () => {
     if (!selectedSlot || isCreating) return;
 
     setIsCreating(true);
     try {
-      console.log('🚀 Création rapide shift calendrier:', selectedSlot);
-
-      // 🎯 NOUVEAU: Calcul des heures avec gestion des minutes
       const startTime = `${selectedSlot.hour.toString().padStart(2, '0')}:${(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}`;
       const endTime = calculateEndTime(selectedSlot.hour, selectedSlot.startMinutes || 0, quickCreateData.duration).formatted;
 
       const shiftData = {
         event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
-        title: quickCreateData.title || `${translate('quickCreatePlaceholder') || 'Shift'} ${selectedSlot.hour}h${(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}`,
+        title: quickCreateData.title || `${currentTxt.quickCreatePlaceholder} ${selectedSlot.hour}h${(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}`,
         description: '',
         shift_date: selectedSlot.date,
         start_time: startTime,
@@ -732,7 +1052,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         current_volunteers: 0,
         role_type: 'general',
         difficulty_level: 'beginner',
-        status: 'draft',
+        status: 'live', // 🎯 MODIFICATION: Auto-publication selon feedback
         check_in_required: true,
         qr_code_enabled: true,
         created_by: currentUser?.id || ''
@@ -741,12 +1061,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       const { data, error } = await volunteerService.createShift(shiftData);
 
       if (error) {
-        console.error('❌ Erreur création shift calendrier:', error);
-        alert(`${translate('errorCreateError') || 'Error creating shift'}: ${error.message}`);
+        alert(`${currentTxt.errorCreateError}: ${error.message}`);
         return;
       }
-
-      console.log('✅ Shift créé avec succès:', data);
 
       const localShift = {
         id: data.id,
@@ -762,19 +1079,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         check_in_required: data.check_in_required || false
       };
 
-      // Mettre à jour l'état local directement
       setVolunteerShifts(prev => [...prev, localShift]);
       
-      // Fermer le modal
       setShowCreateModal(false);
       setQuickCreateData({ title: '', max_volunteers: 1, duration: 120, startMinutes: 0 });
       setSelectedSlot(null);
 
-      alert(translate('successShiftCreated') || 'Shift created successfully');
+      alert(currentTxt.successShiftCreated);
 
     } catch (error) {
-      console.error('❌ Erreur catch:', error);
-      alert(`${translate('errorCreateError') || 'Error creating shift'}: ${getErrorMessage(error)}`);
+      alert(`${currentTxt.errorCreateError}: ${getErrorMessage(error)}`);
     } finally {
       setIsCreating(false);
     }
@@ -801,17 +1115,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
     setIsUpdating(true);
     try {
-      console.log('🔄 Mise à jour shift calendrier:', showEditShift.id, editShiftData);
-
       const { data, error } = await volunteerService.updateShift(showEditShift.id, editShiftData);
 
       if (error) {
-        console.error('❌ Erreur mise à jour calendrier:', error);
-        alert(`${translate('errorUpdateError') || 'Error updating shift'}: ${error.message}`);
+        alert(`${currentTxt.errorUpdateError}: ${error.message}`);
         return;
       }
-
-      console.log('✅ Shift mis à jour:', data);
 
       const updatedShift = { ...showEditShift, ...editShiftData };
       
@@ -833,30 +1142,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         check_in_required: true
       });
 
-      alert(translate('successShiftUpdated') || 'Shift updated successfully');
+      alert(currentTxt.successShiftUpdated);
 
     } catch (error) {
-      console.error('❌ Erreur catch:', error);
-      alert(`${translate('errorUpdateError') || 'Error updating shift'}: ${getErrorMessage(error)}`);
+      alert(`${currentTxt.errorUpdateError}: ${getErrorMessage(error)}`);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // CHANGEMENT DE STATUT avec Supabase et messages traduits
+  // 🎯 MODIFICATION: Changement de statut avec libellé "Unpublish" selon feedback
   const changeShiftStatus = async (shiftId: string, newStatus: 'draft' | 'live' | 'full' | 'cancelled') => {
     try {
-      console.log('🔄 Changement statut:', shiftId, 'vers', newStatus);
-      
       const { error } = await volunteerService.updateShift(shiftId, { status: newStatus });
       
       if (error) {
-        console.error('❌ Erreur changement statut:', error);
-        alert(`${translate('errorStatusChangeError') || 'Error changing status'}: ${error.message}`);
+        alert(`${currentTxt.errorStatusChangeError}: ${error.message}`);
         return;
       }
-      
-      console.log('✅ Statut changé avec succès');
       
       setVolunteerShifts(shifts =>
         shifts.map(s =>
@@ -864,9 +1167,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         )
       );
     } catch (error) {
-      console.error('❌ Erreur catch:', error);
-      alert(`${translate('errorStatusChangeError') || 'Error changing status'}: ${getErrorMessage(error)}`);
+      alert(`${currentTxt.errorStatusChangeError}: ${getErrorMessage(error)}`);
     }
+  };
+
+  // 🎯 MODIFICATION: Gestion améliorée de l'inscription avec vérifications
+  const handleSignUp = async (shiftId: string) => {
+    if (!currentUser?.id) return;
+
+    const shift = volunteerShifts.find(s => s.id === shiftId);
+    if (!shift) return;
+
+    // Vérifier le conflit d'horaires
+    const hasTimeConflict = checkTimeConflict(shift, currentUser.id);
+    if (hasTimeConflict) {
+      if (!confirm(`${currentTxt.overlapDetected}\n${currentTxt.overlapWarning}\n\n${currentTxt.overlapContinue}`)) {
+        return;
+      }
+    }
+
+    // Vérifier la limite d'heures
+    const exceedsHourLimit = checkHourLimit(shiftId);
+    if (exceedsHourLimit) {
+      if (!confirm(`${currentTxt.hourLimitWarning}\n\n${currentTxt.hourLimitContinue}`)) {
+        return;
+      }
+    }
+
+    // Procéder à l'inscription
+    onSignUp(shiftId);
   };
 
   const cancelEditShift = () => {
@@ -890,7 +1219,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <Calendar className="w-8 h-8 text-green-400" />
-          <h2 className="text-2xl font-bold text-white">{translate('volunteerPlanning') || 'Volunteer Planning'}</h2>
+          <h2 className="text-2xl font-bold text-white">{currentTxt.volunteerPlanning}</h2>
         </div>
         
         <div className="flex items-center gap-4">
@@ -899,7 +1228,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <button
               onClick={() => {
                 setViewMode('day');
-                setFourDaysStartIndex(0); // Reset l'index
+                setFourDaysStartIndex(0);
               }}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === 'day' 
@@ -907,12 +1236,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   : 'text-gray-300 hover:text-white hover:bg-gray-600/50'
               }`}
             >
-              {translate('viewDay') || 'Day'}
+              {currentTxt.viewDay}
             </button>
             <button
               onClick={() => {
                 setViewMode('fourDays');
-                setFourDaysStartIndex(0); // Reset à lundi par défaut
+                setFourDaysStartIndex(0);
               }}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === 'fourDays' 
@@ -920,12 +1249,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   : 'text-gray-300 hover:text-white hover:bg-gray-600/50'
               }`}
             >
-              {translate('viewFourDays') || '4 Days'}
+              {currentTxt.viewFourDays}
             </button>
             <button
               onClick={() => {
                 setViewMode('week');
-                setFourDaysStartIndex(0); // Reset l'index
+                setFourDaysStartIndex(0);
               }}
               className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                 viewMode === 'week' 
@@ -933,7 +1262,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   : 'text-gray-300 hover:text-white hover:bg-gray-600/50'
               }`}
             >
-              {translate('viewWeek') || 'Week'}
+              {currentTxt.viewWeek}
             </button>
           </div>
 
@@ -942,7 +1271,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             <button
               onClick={goToPrevious}
               className="p-2 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors"
-              title={translate('navigationPrevious') || 'Previous'}
+              title={currentTxt.navigationPrevious}
             >
               <ChevronLeft className="w-5 h-5 text-gray-300" />
             </button>
@@ -951,13 +1280,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               onClick={goToToday}
               className="px-4 py-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors font-semibold"
             >
-              {translate('navigationToday') || 'Today'}
+              {currentTxt.navigationToday}
             </button>
             
             <button
               onClick={goToNext}
               className="p-2 bg-gray-700/50 rounded-lg hover:bg-gray-600/50 transition-colors"
-              title={translate('navigationNext') || 'Next'}
+              title={currentTxt.navigationNext}
             >
               <ChevronRight className="w-5 h-5 text-gray-300" />
             </button>
@@ -972,17 +1301,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </h3>
         <div className="flex items-center justify-center gap-4 mt-2">
           <p className="text-gray-400 text-sm">
-            {translate('currentMode') || 'Current mode'}: {
-              viewMode === 'day' ? (translate('viewDay') || 'Day') : 
-              viewMode === 'fourDays' ? (translate('viewFourDays') || '4 Days') : 
-              (translate('viewWeek') || 'Week')
+            {currentTxt.currentMode}: {
+              viewMode === 'day' ? currentTxt.viewDay : 
+              viewMode === 'fourDays' ? currentTxt.viewFourDays : 
+              currentTxt.viewWeek
             }
           </p>
           
           {/* Indicateur de position pour vue 4 jours */}
           {viewMode === 'fourDays' && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 text-xs">{translate('position') || 'Position'}:</span>
+              <span className="text-gray-500 text-xs">{currentTxt.position}:</span>
               <div className="flex gap-1">
                 {[0, 1, 2, 3].map(index => (
                   <button
@@ -993,7 +1322,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         ? 'bg-green-400' 
                         : 'bg-gray-600 hover:bg-gray-500'
                     }`}
-                    title={`${translate('startFrom') || 'Start from'} ${daysOfWeek[index]}`}
+                    title={`${currentTxt.startFrom} ${daysOfWeek[index]}`}
                   />
                 ))}
               </div>
@@ -1002,35 +1331,33 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* Légende mise à jour avec indication des conflits */}
+      {/* 🎯 MODIFICATION: Légende simplifiée selon feedback */}
       <div className="flex flex-wrap gap-4 mb-6 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-500/20 border border-red-500/40 rounded"></div>
-          <span className="text-gray-300">{translate('legendEmpty') || 'Empty'}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-orange-500/20 border border-orange-500/40 rounded"></div>
-          <span className="text-gray-300">{translate('legendPartial') || 'Partially filled'}</span>
+          <div className="w-4 h-4 bg-emerald-500/20 border border-emerald-500/40 rounded"></div>
+          <span className="text-gray-300">{currentTxt.available}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500/20 border border-green-500/40 rounded"></div>
-          <span className="text-gray-300">{translate('legendFull') || 'Full'}</span>
+          <span className="text-gray-300">{currentTxt.full}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-yellow-500/20 border border-yellow-500/40 rounded"></div>
-          <span className="text-gray-300">{translate('legendDraft') || 'Draft'}</span>
-        </div>
+        {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 bg-yellow-500/20 border border-yellow-500/40 rounded"></div>
+            <span className="text-gray-300">{currentTxt.shiftStatusDraft}</span>
+          </div>
+        )}
         {currentUser?.role === 'volunteer' && (
           <>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-indigo-600 border-2 border-blue-300 rounded shadow-lg"></div>
-              <span className="text-blue-300 font-semibold">{translate('legendMyShifts') || 'My shifts'}</span>
+              <span className="text-blue-300 font-semibold">{currentTxt.signedUpStatus}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-gradient-to-r from-red-500/30 to-orange-500/30 border-2 border-red-400/60 rounded shadow-lg"></div>
               <span className="text-red-300 font-semibold">
                 <AlertTriangle className="w-3 h-3 inline mr-1" />
-                {translate('legendTimeConflict') || 'Time conflict'}
+                {currentTxt.timeConflict}
               </span>
             </div>
           </>
@@ -1043,13 +1370,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           
           {/* Header des jours */}
           <div className={`grid gap-px mb-2`} style={{ gridTemplateColumns: `80px repeat(${displayDates.length}, 1fr)` }}>
-            <div className="p-3 text-center text-gray-400 font-semibold">{translate('hour') || 'Hour'}</div>
+            <div className="p-3 text-center text-gray-400 font-semibold">{currentTxt.hour}</div>
             {displayDates.map((date, index) => {
               const dayIndex = viewMode === 'week' ? index : weekDates.findIndex(d => d.toDateString() === date.toDateString());
               return (
                 <div key={index} className="p-3 text-center">
                   <div className="text-white font-semibold">
-                    {viewMode === 'day' ? (translate('today') || 'Today') : (daysOfWeek[dayIndex] || daysOfWeek[index])}
+                    {viewMode === 'day' ? currentTxt.today : (daysOfWeek[dayIndex] || daysOfWeek[index])}
                   </div>
                   <div className="text-gray-400 text-sm">
                     {formatDate(date)}
@@ -1059,7 +1386,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             })}
           </div>
 
-          {/* 🎯 NOUVEAU: Grille horaire avec sous-divisions par quarts d'heure */}
+          {/* Grille horaire avec sous-divisions par quarts d'heure */}
           <div className="relative">
             {hoursRange.map(hour => (
               <div key={hour} className="relative">
@@ -1070,7 +1397,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   <div className="h-16 bg-gray-700/30 flex items-center justify-center text-gray-400 font-medium relative">
                     <span className="text-lg">{hour}:00</span>
                     
-                    {/* 🎯 NOUVEAU: Indicateurs de quarts d'heure */}
+                    {/* Indicateurs de quarts d'heure */}
                     <div className="absolute right-1 top-1 flex flex-col gap-0.5 text-xs text-gray-500">
                       <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
                       <div className="w-1 h-1 bg-gray-500 rounded-full"></div>
@@ -1098,7 +1425,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         onDrop={(e) => handleDrop(e, dayIndex, hour, 0)}
                       >
                         
-                        {/* 🎯 CORRECTION: Zone invisible pour capture du drag - SEULEMENT si pas de quarts d'heure affichés */}
+                        {/* Zone invisible pour capture du drag - SEULEMENT si pas de quarts d'heure affichés */}
                         {draggedShift && !(draggedOverSlot?.day === dayIndex && draggedOverSlot?.hour === hour) && (
                           <div 
                             className="absolute inset-0 z-5"
@@ -1115,7 +1442,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           />
                         )}
                         
-                        {/* 🎯 CORRECTION: Zones cliquables et droppables pour les quarts d'heure - SEULEMENT dans l'heure survolée pendant le drag */}
+                        {/* Zones cliquables et droppables pour les quarts d'heure - SEULEMENT dans l'heure survolée pendant le drag */}
                         {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && 
                          draggedShift && 
                          draggedOverSlot?.day === dayIndex && 
@@ -1146,7 +1473,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                     e.preventDefault();
                                     e.stopPropagation();
                                   }}
-                                  title={`${translate('moveTo') || 'Move to'} ${hour}:${minutes.toString().padStart(2, '0')}`}
+                                  title={`${currentTxt.moveTo} ${hour}:${minutes.toString().padStart(2, '0')}`}
                                 >
                                   {/* Ligne de séparation des quarts d'heure */}
                                   {minutes > 0 && (
@@ -1180,10 +1507,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                           if (!isMainSlot) return null;
                           
                           const position = getShiftPosition(shift, shiftsInSlot);
-                          const hasOverlapConflict = currentUser?.role === 'volunteer' && 
+                          const hasTimeConflict = currentUser?.role === 'volunteer' && 
                                                     currentUser?.id && 
                                                     !isUserSignedUpForShift(shift.id) &&
-                                                    checkOverlapForDisplay(shift, currentUser.id);
+                                                    checkTimeConflict(shift, currentUser.id);
                           
                           return (
                             <div
@@ -1202,7 +1529,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               onDragEnd={handleDragEnd}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // 🎯 NOUVEAU: Utiliser le callback pour les organisateurs
                                 if ((currentUser?.role === 'organizer' || currentUser?.role === 'admin') && onShiftClick) {
                                   onShiftClick(shift);
                                 } else {
@@ -1217,10 +1543,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               </div>
                               <div className="flex items-center gap-1">
                                 <Clock size={10} />
-                                <span className="text-xs">{shift.start_time}-{shift.end_time}</span>
+                                <span className="text-xs">{shift.start_time.slice(0, 5)}-{shift.end_time.slice(0, 5)}</span>
                               </div>
                               
-                              {/* 🎯 NOUVEAU: Indicateur visuel du nombre de bénévoles pour organisateurs */}
+                              {/* 🎯 NOUVEAU: Bouton "+" pour créer un créneau parallèle - SEULEMENT sur le créneau le plus à droite */}
+                              {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
+                                (() => {
+                                  // Trouver tous les créneaux qui se chevauchent avec celui-ci
+                                  const overlappingShifts = shiftsInSlot.filter(s => {
+                                    const currentStart = timeToMinutes(shift.start_time);
+                                    const currentEnd = timeToMinutes(shift.end_time);
+                                    const otherStart = timeToMinutes(s.start_time);
+                                    const otherEnd = timeToMinutes(s.end_time);
+                                    return currentStart < otherEnd && currentEnd > otherStart;
+                                  });
+                                  
+                                  // Trier par heure de début pour déterminer l'ordre
+                                  const sortedOverlapping = overlappingShifts.sort((a, b) => {
+                                    const timeA = timeToMinutes(a.start_time);
+                                    const timeB = timeToMinutes(b.start_time);
+                                    return timeA - timeB;
+                                  });
+                                  
+                                  // Vérifier si ce créneau est le dernier (le plus à droite)
+                                  const isRightmost = sortedOverlapping[sortedOverlapping.length - 1]?.id === shift.id;
+                                  
+                                  return isRightmost && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCreateParallelShift(shift);
+                                      }}
+                                      className="absolute -right-6 top-1/2 transform -translate-y-1/2 w-5 h-5 bg-green-500 hover:bg-green-600 rounded-full border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center justify-center z-40"
+                                      title={currentTxt.createParallelShift}
+                                    >
+                                      <Plus className="w-3 h-3 text-white" />
+                                    </button>
+                                  );
+                                })()
+                              )}
+                              
+                              {/* Indicateur visuel du nombre de bénévoles pour organisateurs */}
                               {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
                                 <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
                                   <span className="text-xs text-white font-bold">{shift.current_volunteers}</span>
@@ -1228,7 +1591,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                               )}
                               
                               {/* Indicateur de conflit d'horaire */}
-                              {hasOverlapConflict && (
+                              {hasTimeConflict && (
                                 <div className="absolute -top-1 -left-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
                                   <AlertTriangle className="w-3 h-3 text-white animate-pulse" />
                                 </div>
@@ -1250,7 +1613,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 </div>
                               )}
                               
-                              {/* Boutons action rapide pour organisateurs */}
+                              {/* 🎯 MODIFICATION: Boutons action rapide pour organisateurs avec libellé "Unpublish" */}
                               {(currentUser?.role === 'organizer' || currentUser?.role === 'admin') && (
                                 <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
@@ -1264,8 +1627,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                         ? 'bg-green-500 hover:bg-green-600' 
                                         : 'bg-gray-500 hover:bg-gray-600'
                                     } text-white flex items-center justify-center`}
+                                    title={shift.status === 'draft' ? currentTxt.actionPublish : currentTxt.actionDraft}
                                   >
-                                    {shift.status === 'draft' ? '✓' : 'D'}
+                                    {shift.status === 'draft' ? '✓' : 'U'}
                                   </button>
                                 </div>
                               )}
@@ -1290,12 +1654,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* 🎯 NOUVEAU: Modal création rapide avec gestion des quarts d'heure */}
+      {/* Modal création rapide avec gestion des quarts d'heure */}
       {showCreateModal && selectedSlot && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">{translate('quickCreateTitle') || 'Quick Create'}</h3>
+              <h3 className="text-xl font-bold text-white">{currentTxt.quickCreateTitle}</h3>
               <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-white">
                 <X size={20} />
               </button>
@@ -1303,19 +1667,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('quickCreateTitleField') || 'Title'}</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.quickCreateTitleField}</label>
                 <input
                   type="text"
                   value={quickCreateData.title}
                   onChange={(e) => setQuickCreateData({...quickCreateData, title: e.target.value})}
                   className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/30 rounded-lg text-white focus:ring-2 focus:ring-green-500"
-                  placeholder={`${translate('quickCreatePlaceholder') || 'Shift'} ${selectedSlot.hour}h${(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}`}
+                  placeholder={`${currentTxt.quickCreatePlaceholder} ${selectedSlot.hour}h${(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}`}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('quickCreateVolunteers') || 'Volunteers'}</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.quickCreateVolunteers}</label>
                   <input
                     type="number"
                     min="1"
@@ -1325,7 +1689,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('quickCreateStartMinutes') || 'Start minutes'}</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.quickCreateStartMinutes}</label>
                   <select
                     value={quickCreateData.startMinutes}
                     onChange={(e) => setQuickCreateData({...quickCreateData, startMinutes: parseInt(e.target.value)})}
@@ -1341,7 +1705,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('quickCreateDuration') || 'Duration'}</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.quickCreateDuration}</label>
                 <select
                   value={quickCreateData.duration}
                   onChange={(e) => setQuickCreateData({...quickCreateData, duration: parseInt(e.target.value)})}
@@ -1356,10 +1720,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div className="text-sm text-gray-400 bg-gray-800/50 p-3 rounded-lg">
-                <p><strong>📅 {translate('quickCreateDate') || 'Date'}:</strong> {formatDate(displayDates[selectedSlot.day])}</p>
-                <p><strong>🕐 {translate('quickCreateStart') || 'Start'}:</strong> {selectedSlot.hour}:{(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}</p>
-                <p><strong>🕑 {translate('quickCreateEnd') || 'End'}:</strong> {calculateEndTime(selectedSlot.hour, selectedSlot.startMinutes || 0, quickCreateData.duration).formatted}</p>
-                <p><strong>⏱️ {translate('quickCreateTotalDuration') || 'Total duration'}:</strong> {quickCreateData.duration} {translate('quickCreateMinutes') || 'minutes'}</p>
+                <p><strong>📅 {currentTxt.quickCreateDate}:</strong> {formatDate(displayDates[selectedSlot.day])}</p>
+                <p><strong>🕐 {currentTxt.quickCreateStart}:</strong> {selectedSlot.hour}:{(selectedSlot.startMinutes || 0).toString().padStart(2, '0')}</p>
+                <p><strong>🕑 {currentTxt.quickCreateEnd}:</strong> {calculateEndTime(selectedSlot.hour, selectedSlot.startMinutes || 0, quickCreateData.duration).formatted}</p>
+                <p><strong>⏱️ {currentTxt.quickCreateTotalDuration}:</strong> {quickCreateData.duration} {currentTxt.quickCreateMinutes}</p>
               </div>
 
               <div className="flex gap-3">
@@ -1367,7 +1731,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  {translate('cancel') || 'Cancel'}
+                  {currentTxt.cancel}
                 </button>
                 <button
                   onClick={createQuickShift}
@@ -1378,7 +1742,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
-                  {isCreating ? `🔄 ${translate('creating') || 'Creating'}...` : `✨ ${translate('create') || 'Create'}`}
+                  {isCreating ? `🔄 ${currentTxt.creating}...` : `✨ ${currentTxt.create}`}
                 </button>
               </div>
             </div>
@@ -1391,7 +1755,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-6 w-full max-w-md">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">{translate('shiftDetailsTitle') || 'Shift Details'}</h3>
+              <h3 className="text-xl font-bold text-white">{currentTxt.shiftDetailsTitle}</h3>
               <button onClick={() => setShowShiftDetails(null)} className="text-gray-400 hover:text-white">
                 <X size={20} />
               </button>
@@ -1407,17 +1771,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 <div className="bg-gray-800/50 p-3 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock size={16} className="text-blue-400" />
-                    <span className="text-gray-300">{translate('fieldTime') || 'Time'}</span>
+                    <span className="text-gray-300">{currentTxt.fieldTime}</span>
                   </div>
                   <p className="text-white font-semibold">
-                    {showShiftDetails.start_time} - {showShiftDetails.end_time}
+                    {showShiftDetails.start_time.slice(0, 5)} - {showShiftDetails.end_time.slice(0, 5)}
                   </p>
                 </div>
 
                 <div className="bg-gray-800/50 p-3 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Users size={16} className="text-green-400" />
-                    <span className="text-gray-300">{translate('volunteers') || 'Volunteers'}</span>
+                    <span className="text-gray-300">{currentTxt.volunteers}</span>
                   </div>
                   <p className="text-white font-semibold">
                     {showShiftDetails.current_volunteers}/{showShiftDetails.max_volunteers}
@@ -1426,14 +1790,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div className="bg-gray-800/50 p-3 rounded-lg">
-                <p className="text-gray-300 text-sm mb-1">{translate('fieldStatus') || 'Status'}</p>
+                <p className="text-gray-300 text-sm mb-1">{currentTxt.fieldStatus}</p>
                 <p className={`font-semibold ${
                   showShiftDetails.status === 'live' ? 'text-green-400' :
                   showShiftDetails.status === 'draft' ? 'text-yellow-400' :
                   showShiftDetails.status === 'full' ? 'text-blue-400' :
                   'text-gray-400'
                 }`}>
-                  {getLocalizedShiftStatus(showShiftDetails.status)}
+                  {getLocalizedShiftStatus(showShiftDetails)}
                 </p>
               </div>
 
@@ -1445,7 +1809,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
                   >
                     <Edit size={16} />
-                    {translate('actionEdit') || 'Edit'}
+                    {currentTxt.actionEdit}
                   </button>
                   <button
                     onClick={async () => {
@@ -1459,7 +1823,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                         : 'bg-yellow-500 hover:bg-yellow-600 text-white'
                     }`}
                   >
-                    {showShiftDetails.status === 'draft' ? (translate('actionPublish') || 'Publish') : (translate('actionDraft') || 'Unpublish')}
+                    {showShiftDetails.status === 'draft' ? currentTxt.actionPublish : currentTxt.actionDraft}
                   </button>
                 </div>
               )}
@@ -1471,22 +1835,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                     canSignUpForShift(showShiftDetails) ? (
                       <button
                         onClick={() => {
-                          onSignUp(showShiftDetails.id);
+                          handleSignUp(showShiftDetails.id);
                           setShowShiftDetails(null);
                         }}
                         className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 justify-center"
                       >
                         <UserPlus size={16} />
-                        {translate('actionSignUp') || 'Sign Up'}
+                        {currentTxt.actionSignUp}
                       </button>
                     ) : (
                       <div className="w-full px-4 py-2 bg-gray-600 text-gray-300 rounded-lg text-center">
-                        {translate('shiftFull') || 'Shift is full'}
+                        {currentTxt.shiftFull}
                       </div>
                     )
                   ) : (
                     <div className="w-full px-4 py-2 bg-blue-500/20 border border-blue-500/40 text-blue-300 rounded-lg text-center">
-                      ✓ {translate('signedUp') || 'You are signed up'}
+                      ✓ {currentTxt.signedUp}
                     </div>
                   )}
                 </div>
@@ -1501,7 +1865,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-6 w-full max-w-lg">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">{translate('editShiftTitle') || 'Edit Shift'}</h3>
+              <h3 className="text-xl font-bold text-white">{currentTxt.editShiftTitle}</h3>
               <button onClick={cancelEditShift} className="text-gray-400 hover:text-white">
                 <X size={20} />
               </button>
@@ -1509,7 +1873,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('editFieldTitle') || 'Title'}</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.editFieldTitle}</label>
                 <input
                   type="text"
                   value={editShiftData.title}
@@ -1519,7 +1883,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('editFieldDescription') || 'Description'}</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.editFieldDescription}</label>
                 <textarea
                   value={editShiftData.description}
                   onChange={(e) => setEditShiftData({...editShiftData, description: e.target.value})}
@@ -1530,7 +1894,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('editFieldStartTime') || 'Start time'}</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.editFieldStartTime}</label>
                   <input
                     type="time"
                     value={editShiftData.start_time}
@@ -1539,7 +1903,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('editFieldEndTime') || 'End time'}</label>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.editFieldEndTime}</label>
                   <input
                     type="time"
                     value={editShiftData.end_time}
@@ -1550,7 +1914,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('editFieldMaxVolunteers') || 'Max volunteers'}</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.editFieldMaxVolunteers}</label>
                 <input
                   type="number"
                   min="1"
@@ -1561,7 +1925,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">{translate('editFieldRoleType') || 'Role type'}</label>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">{currentTxt.editFieldRoleType}</label>
                 <input
                   type="text"
                   value={editShiftData.role_type}
@@ -1579,7 +1943,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   className="w-4 h-4 text-green-500 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
                 />
                 <label htmlFor="check_in_required" className="text-gray-300">
-                  {translate('editFieldCheckInRequired') || 'Check-in required'}
+                  {currentTxt.editFieldCheckInRequired}
                 </label>
               </div>
 
@@ -1588,7 +1952,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                   onClick={cancelEditShift}
                   className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
-                  {translate('cancel') || 'Cancel'}
+                  {currentTxt.cancel}
                 </button>
                 <button
                   onClick={saveEditShift}
@@ -1599,7 +1963,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                       : 'bg-green-500 text-white hover:bg-green-600'
                   }`}
                 >
-                  {isUpdating ? `🔄 ${translate('saving') || 'Saving'}...` : (translate('save') || 'Save')}
+                  {isUpdating ? `🔄 ${currentTxt.saving}...` : currentTxt.save}
                 </button>
               </div>
             </div>

@@ -1,7 +1,7 @@
-// src/hooks/useTeamActions.ts - VERSION COMPLÈTE AVEC markAsCompleted CORRIGÉ
+// src/hooks/useTeamActions.ts - VERSION CORRIGÉE SANS ERREURS TYPESCRIPT
 import { useState } from 'react';
 import { teamService } from '../services/teamService';
-import { PerformanceTeam, TechRehearsalRating } from '../types/PerformanceTeam';
+import { PerformanceTeam, TechRehearsalRating, Performer } from '../types/PerformanceTeam';
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -10,39 +10,67 @@ const getErrorMessage = (error: unknown): string => {
 };
 
 export interface CreateTeamData {
+  // Informations de base
   team_name: string;
   director_name: string;
   director_email: string;
   director_phone?: string;
+  
+  // Informations studio/localisation
   studio_name?: string;
   city: string;
   state?: string;
   country?: string;
+  
+  // Performance
   group_size: number;
   dance_styles: string[];
   performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null;
   performance_video_url?: string;
+  
+  // 🎵 MUSIQUE
+  song_title?: string;
+  song_artist?: string;
+  music_file?: File | null;
+  
+  // 📸 MÉDIAS
+  team_photo?: File | null;
+  
+  // Réseaux sociaux
   instagram?: string;
   website_url?: string;
-  music_file?: File | null;
-  team_photo?: File | null;
 }
 
 export interface UpdateTeamData {
+  // Informations de base
   team_name: string;
   director_name: string;
   director_email: string;
   director_phone?: string;
+  
+  // Informations studio/localisation
   studio_name?: string;
   city: string;
   state?: string;
   country?: string;
+  
+  // Performance
   group_size: number;
   dance_styles: string[];
   performance_level?: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null;
   performance_video_url?: string;
+  
+  // 🎵 MUSIQUE
+  song_title?: string;
+  song_artist?: string;
+  
+  // Réseaux sociaux
   instagram?: string;
   website_url?: string;
+}
+
+export interface CreateTeamWithPerformers extends CreateTeamData {
+  performers: Performer[]; // ✅ CORRECTION: Utiliser le type Performer de PerformanceTeam.ts
 }
 
 interface UseTeamActionsProps {
@@ -66,11 +94,25 @@ export const useTeamActions = ({
   const [uploadingMusic, setUploadingMusic] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
 
-  // =====================
-  // FONCTIONS EXISTANTES
-  // =====================
+  // ✅ FONCTION HELPER POUR CONVERTIR LES PERFORMERS
+  const convertPerformers = (performers: any[]): Performer[] => {
+    return performers.map((performer, index) => ({
+      id: performer.id || `performer-${index + 1}`,
+      name: performer.name || '',
+      email: performer.email || '',
+      phone: performer.phone,
+      role: performer.role,
+      is_team_director: performer.is_team_director,
+      profile_image: performer.profile_image,
+      bio: performer.bio,
+      experience_years: performer.experience_years,
+      specialties: performer.specialties,
+      created_at: performer.created_at,
+      updated_at: performer.updated_at
+    }));
+  };
 
-  const createTeam = async (teamData: CreateTeamData): Promise<boolean> => {
+  const createTeam = async (teamData: CreateTeamWithPerformers): Promise<boolean> => {
     try {
       setIsCreating(true);
       
@@ -80,6 +122,7 @@ export const useTeamActions = ({
           id: `team_${Date.now()}`,
           event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
           ...teamData,
+          performers: convertPerformers(teamData.performers), // ✅ CORRECTION: Convertir les performers
           status: 'draft',
           created_by: currentUser?.id,
           created_at: new Date().toISOString()
@@ -97,7 +140,13 @@ export const useTeamActions = ({
       });
       
       if (result.success && result.data) {
-        setPerformanceTeams(prev => [...prev, result.data!]);
+        // ✅ CORRECTION: Convertir les performers pour assurer la compatibilité
+        const teamWithConvertedPerformers: PerformanceTeam = {
+          ...result.data,
+          performers: result.data.performers ? convertPerformers(result.data.performers) : undefined
+        };
+        
+        setPerformanceTeams(prev => [...prev, teamWithConvertedPerformers]);
         onSuccess?.('Équipe créée avec succès !');
         return true;
       } else {
@@ -132,8 +181,14 @@ export const useTeamActions = ({
       const result = await teamService.updateTeam(teamId, updateData);
       
       if (result.success && result.data) {
+        // ✅ CORRECTION: Assurer la compatibilité des types
+        const updatedTeam: PerformanceTeam = {
+          ...result.data,
+          performers: result.data.performers ? convertPerformers(result.data.performers) : undefined
+        };
+        
         setPerformanceTeams(prev => 
-          prev.map(team => team.id === teamId ? result.data! : team)
+          prev.map(team => team.id === teamId ? updatedTeam : team)
         );
         onSuccess?.('Équipe mise à jour avec succès !');
         return true;
@@ -203,8 +258,13 @@ export const useTeamActions = ({
       const result = await teamService.submitTeam(teamId);
       
       if (result.success && result.data) {
+        const updatedTeam: PerformanceTeam = {
+          ...result.data,
+          performers: result.data.performers ? convertPerformers(result.data.performers) : undefined
+        };
+        
         setPerformanceTeams(prev => 
-          prev.map(team => team.id === teamId ? result.data! : team)
+          prev.map(team => team.id === teamId ? updatedTeam : team)
         );
         onSuccess?.('Équipe soumise avec succès !');
         return true;
@@ -245,8 +305,13 @@ export const useTeamActions = ({
       const result = await teamService.approveTeam(teamId);
       
       if (result.success && result.data) {
+        const updatedTeam: PerformanceTeam = {
+          ...result.data,
+          performers: result.data.performers ? convertPerformers(result.data.performers) : undefined
+        };
+        
         setPerformanceTeams(prev => 
-          prev.map(team => team.id === teamId ? result.data! : team)
+          prev.map(team => team.id === teamId ? updatedTeam : team)
         );
         onSuccess?.('Équipe approuvée avec succès !');
         return true;
@@ -288,8 +353,13 @@ export const useTeamActions = ({
       const result = await teamService.rejectTeam(teamId, reason);
       
       if (result.success && result.data) {
+        const updatedTeam: PerformanceTeam = {
+          ...result.data,
+          performers: result.data.performers ? convertPerformers(result.data.performers) : undefined
+        };
+        
         setPerformanceTeams(prev => 
-          prev.map(team => team.id === teamId ? result.data! : team)
+          prev.map(team => team.id === teamId ? updatedTeam : team)
         );
         onSuccess?.('Équipe rejetée');
         return true;
@@ -306,14 +376,11 @@ export const useTeamActions = ({
     }
   };
 
-  // ✅ FONCTION CORRIGÉE: markAsCompleted avec sauvegarde backend
   const markAsCompleted = async (teamId: string): Promise<boolean> => {
     try {
       setIsLoading(true);
       
-      // ✅ VÉRIFIER SI LE SERVICE BACKEND EXISTE (comme les autres fonctions)
       if (typeof teamService?.markAsCompleted !== 'function') {
-        // Mode développement/test - mise à jour locale seulement
         setPerformanceTeams(prev => 
           prev.map(team => 
             team.id === teamId 
@@ -330,13 +397,16 @@ export const useTeamActions = ({
         return true;
       }
       
-      // ✅ APPEL AU BACKEND SI DISPONIBLE
       const result = await teamService.markAsCompleted(teamId);
       
       if (result.success && result.data) {
-        // ✅ CORRECTION: Mettre à jour l'état local avec les données du backend
+        const updatedTeam: PerformanceTeam = {
+          ...result.data,
+          performers: result.data.performers ? convertPerformers(result.data.performers) : undefined
+        };
+        
         setPerformanceTeams(prev => 
-          prev.map(team => team.id === teamId ? result.data! : team)
+          prev.map(team => team.id === teamId ? updatedTeam : team)
         );
         onSuccess?.('Équipe marquée comme terminée');
         return true;
@@ -442,13 +512,10 @@ export const useTeamActions = ({
     }
   };
 
-  // ⭐ NOUVELLES FONCTIONS POUR NOTATION TECH REHEARSAL
-
   const updateTechRehearsalRating = async (teamId: string, rating: TechRehearsalRating): Promise<boolean> => {
     try {
       setIsLoading(true);
       
-      // Si pas de service réel, simuler la mise à jour
       if (typeof teamService?.updateTechRehearsalRating !== 'function') {
         setPerformanceTeams(prevTeams => 
           prevTeams.map(team => 
@@ -488,14 +555,15 @@ export const useTeamActions = ({
     }
   };
 
+  // ✅ CORRECTION: Fonction getAverageRating avec type guards
   const getAverageRating = (team: PerformanceTeam): number => {
     if (!team.tech_rehearsal_rating) return 0;
     
     const { rating_1, rating_2, rating_3 } = team.tech_rehearsal_rating;
-    const totalRatings = [rating_1, rating_2, rating_3].filter(r => r > 0);
+    const validRatings = [rating_1, rating_2, rating_3].filter((r): r is number => r !== undefined && r > 0);
     
-    if (totalRatings.length === 0) return 0;
-    return totalRatings.reduce((sum, rating) => sum + rating, 0) / totalRatings.length;
+    if (validRatings.length === 0) return 0;
+    return validRatings.reduce((sum, r) => sum + r, 0) / validRatings.length;
   };
 
   const exportTeamsWithRatings = async (eventId: string): Promise<boolean> => {
@@ -565,19 +633,19 @@ export const useTeamActions = ({
     uploadingMusic,
     uploadingPhoto,
     
-    // Actions existantes
+    // Actions
     createTeam,
     updateTeam,
     deleteTeam,
     submitTeam,
     approveTeam,
     rejectTeam,
-    markAsCompleted, // ✅ FONCTION CORRIGÉE
+    markAsCompleted,
     uploadMusicFile,
     uploadTeamPhoto,
     uploadTeamFiles,
     
-    // ⭐ NOUVELLES ACTIONS RATING
+    // Actions rating
     updateTechRehearsalRating,
     getAverageRating,
     exportTeamsWithRatings

@@ -64,6 +64,9 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // 🎯 NOUVEAU: État local pour le shift affiché (fix du bug)
+  const [displayedShift, setDisplayedShift] = useState(shift);
+
   // 🎯 NOUVEAU: État pour l'édition du shift
   const [editShiftData, setEditShiftData] = useState({
     title: '',
@@ -76,6 +79,13 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
     check_in_required: true,
     status: 'draft' as 'draft' | 'live' | 'full' | 'cancelled'
   });
+
+  // 🎯 NOUVEAU: Synchroniser displayedShift avec le shift reçu
+  useEffect(() => {
+    if (shift) {
+      setDisplayedShift(shift);
+    }
+  }, [shift]);
 
   // Textes traduits
   const texts = {
@@ -302,19 +312,19 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
     }
   }, [isOpen, shift?.id]);
 
-  // 🎯 NOUVEAU: Initialiser les données d'édition
+  // 🎯 NOUVEAU: Initialiser les données d'édition avec displayedShift
   const initializeEditData = () => {
-    if (shift) {
+    if (displayedShift) {
       setEditShiftData({
-        title: shift.title || '',
-        description: shift.description || '',
-        shift_date: shift.shift_date || '',
-        start_time: shift.start_time || '',
-        end_time: shift.end_time || '',
-        max_volunteers: shift.max_volunteers || 1,
-        role_type: shift.role_type || '',
-        check_in_required: shift.check_in_required || false,
-        status: shift.status || 'draft'
+        title: displayedShift.title || '',
+        description: displayedShift.description || '',
+        shift_date: displayedShift.shift_date || '',
+        start_time: displayedShift.start_time || '',
+        end_time: displayedShift.end_time || '',
+        max_volunteers: displayedShift.max_volunteers || 1,
+        role_type: displayedShift.role_type || '',
+        check_in_required: displayedShift.check_in_required || false,
+        status: displayedShift.status || 'draft'
       });
     }
   };
@@ -373,8 +383,9 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
 
       console.log('✅ Shift mis à jour:', data);
 
-      // Mettre à jour le shift local
-      const updatedShift = { ...shift, ...editShiftData };
+      // 🎯 NOUVEAU: Mettre à jour displayedShift immédiatement
+      const updatedShift = { ...displayedShift, ...editShiftData };
+      setDisplayedShift(updatedShift);
       
       // Notifier le parent
       if (onShiftUpdated) {
@@ -397,7 +408,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
     }
   };
 
-  // 🎯 NOUVEAU: Changer le statut du shift
+  // 🎯 MODIFIÉ: Changer le statut du shift avec mise à jour immédiate
   const changeShiftStatus = async (newStatus: 'draft' | 'live' | 'full' | 'cancelled') => {
     if (!shift?.id || isUpdating) return;
 
@@ -415,17 +426,15 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
       
       console.log('✅ Statut changé avec succès');
       
-      // Mettre à jour localement
-      const updatedShift = { ...shift, status: newStatus };
+      // 🎯 NOUVEAU: Mettre à jour displayedShift immédiatement
+      const updatedShift = { ...displayedShift, status: newStatus };
+      setDisplayedShift(updatedShift);
       setEditShiftData(prev => ({ ...prev, status: newStatus }));
       
       // Notifier le parent
       if (onShiftUpdated) {
         onShiftUpdated(updatedShift);
       }
-      
-      // Recharger les détails
-      await loadShiftDetails();
       
       alert(t.statusChanged);
     } catch (error: any) {
@@ -580,10 +589,11 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
             <div>
               <h2 className="text-2xl font-bold text-white">{t.title}</h2>
               <div className="flex items-center gap-3 mt-1">
-                <p className="text-gray-400">{showEditMode ? editShiftData.title : shift?.title}</p>
-                {/* 🎯 NOUVEAU: Badge de statut */}
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getShiftStatusColor(showEditMode ? editShiftData.status : shift?.status)}`}>
-                  {t.shiftStatus[(showEditMode ? editShiftData.status : shift?.status) as keyof typeof t.shiftStatus]}
+                {/* 🎯 UTILISE displayedShift au lieu de shift */}
+                <p className="text-gray-400">{showEditMode ? editShiftData.title : displayedShift?.title}</p>
+                {/* 🎯 NOUVEAU: Badge de statut qui se met à jour instantanément */}
+                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getShiftStatusColor(showEditMode ? editShiftData.status : displayedShift?.status)}`}>
+                  {t.shiftStatus[(showEditMode ? editShiftData.status : displayedShift?.status) as keyof typeof t.shiftStatus]}
                 </span>
               </div>
             </div>
@@ -618,12 +628,12 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       {t.edit}
                     </button>
 
-                    {/* Bouton Publish/Draft */}
+                    {/* 🎯 MODIFIÉ: Bouton Publish/Draft utilise displayedShift */}
                     <button
-                      onClick={() => changeShiftStatus(shift?.status === 'draft' ? 'live' : 'draft')}
+                      onClick={() => changeShiftStatus(displayedShift?.status === 'draft' ? 'live' : 'draft')}
                       disabled={isUpdating}
                       className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                        shift?.status === 'draft' 
+                        displayedShift?.status === 'draft' 
                           ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30' 
                           : 'bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30'
                       }`}
@@ -633,7 +643,8 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                       ) : (
                         <RotateCcw size={16} />
                       )}
-                      {shift?.status === 'draft' ? t.publish : t.draft}
+                      {/* 🎯 MODIFIÉ: Texte du bouton utilise displayedShift */}
+                      {displayedShift?.status === 'draft' ? t.publish : t.draft}
                     </button>
                   </>
                 ) : (
@@ -771,7 +782,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                     </div>
                   </div>
                 ) : (
-                  // Mode consultation
+                  // Mode consultation - 🎯 UTILISE displayedShift
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-gray-800/50 p-4 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
@@ -779,7 +790,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                         <span className="text-gray-300 text-sm">{t.date}</span>
                       </div>
                       <p className="text-white font-semibold">
-                        {shift?.shift_date ? formatDate(shift.shift_date) : 'Non défini'}
+                        {displayedShift?.shift_date ? formatDate(displayedShift.shift_date) : 'Non défini'}
                       </p>
                     </div>
 
@@ -789,7 +800,7 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                         <span className="text-gray-300 text-sm">{t.time}</span>
                       </div>
                       <p className="text-white font-semibold">
-                        {shift?.start_time} - {shift?.end_time}
+                        {displayedShift?.start_time} - {displayedShift?.end_time}
                       </p>
                     </div>
 
@@ -799,18 +810,18 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                         <span className="text-gray-300 text-sm">{t.maxVolunteers}</span>
                       </div>
                       <p className="text-white font-semibold">
-                        {shift?.max_volunteers} {t.assignedVolunteers}
+                        {displayedShift?.max_volunteers} {t.assignedVolunteers}
                       </p>
                     </div>
 
-                    {shift?.role_type && (
+                    {displayedShift?.role_type && (
                       <div className="bg-gray-800/50 p-4 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
                           <Shield className="w-4 h-4 text-orange-400" />
                           <span className="text-gray-300 text-sm">{t.roleType}</span>
                         </div>
                         <p className="text-white font-semibold capitalize">
-                          {shift.role_type.replace('_', ' ')}
+                          {displayedShift.role_type.replace('_', ' ')}
                         </p>
                       </div>
                     )}
@@ -821,16 +832,16 @@ const ShiftDetailsModal: React.FC<ShiftDetailsModalProps> = ({
                         <span className="text-gray-300 text-sm">{t.checkInRequired}</span>
                       </div>
                       <p className="text-white font-semibold">
-                        {shift?.check_in_required ? 'Oui' : 'Non'}
+                        {displayedShift?.check_in_required ? 'Oui' : 'Non'}
                       </p>
                     </div>
                   </div>
                 )}
 
-                {shift?.description && !showEditMode && (
+                {displayedShift?.description && !showEditMode && (
                   <div className="mt-4 bg-gray-800/50 p-4 rounded-lg">
                     <h4 className="text-gray-300 text-sm mb-2">{t.description}</h4>
-                    <p className="text-white">{shift.description}</p>
+                    <p className="text-white">{displayedShift.description}</p>
                   </div>
                 )}
               </div>

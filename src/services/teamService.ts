@@ -1,6 +1,6 @@
-// src/services/teamService.ts - VERSION FINALE COMPLÈTE AVEC PERFORMERS
+// src/services/teamService.ts - VERSION FINALE COMPLÈTE CORRIGÉE
 import { supabase } from '../lib/supabase';
-import { PerformanceTeam, TechRehearsalRating } from '../types/PerformanceTeam';
+import { PerformanceTeam, TechRehearsalRating, Performer } from '../types/PerformanceTeam';
 
 const getErrorMessage = (error: unknown): string => {
   console.log('🔍 Type d\'erreur:', typeof error, error);
@@ -40,18 +40,7 @@ export interface ServiceResponse<T> {
   message?: string;
 }
 
-// 🎯 Interface pour les performers
-export interface Performer {
-  id?: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role?: string;
-  position_in_team?: number;
-  is_team_director?: boolean;
-}
-
-// 🎯 Interface pour l'équipe avec performers
+// 🎯 CORRECTION: Interface pour l'équipe avec performers (utilise l'interface Performer importée)
 export interface TeamWithPerformers extends PerformanceTeam {
   performers?: Performer[];
 }
@@ -235,21 +224,26 @@ export const teamService = {
     }
   },
 
-  // 🎯 NOUVELLE FONCTION: Sauvegarder les performers
+  // 🎯 CORRECTION: Fonction savePerformers avec interface Performer importée
   async savePerformers(teamId: string, performers: Performer[]): Promise<ServiceResponse<Performer[]>> {
     try {
       console.log('👥 Sauvegarde performers pour équipe:', teamId);
       console.log('👥 Performers à sauvegarder:', performers);
       
-      // Préparer les données performers
+      // 🎯 CORRECTION: Utiliser seulement les propriétés disponibles dans l'interface Performer
       const performersData = performers.map((performer, index) => ({
         team_id: teamId,
         name: performer.name,
         email: performer.email,
         phone: performer.phone || null,
         role: performer.role || (index === 0 ? 'director' : 'performer'),
-        position_in_team: performer.position_in_team || (index + 1),
+        // 🎯 SUPPRESSION: position_in_team n'existe pas dans l'interface Performer
+        // position_in_team: performer.position_in_team || (index + 1),
         is_team_director: performer.is_team_director || (index === 0),
+        profile_image: performer.profile_image || null,
+        bio: performer.bio || null,
+        experience_years: performer.experience_years || null,
+        specialties: performer.specialties || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }));
@@ -268,7 +262,24 @@ export const teamService = {
       }
       
       console.log('✅ Performers insérés:', data);
-      return { success: true, data };
+      
+      // 🎯 CORRECTION: Mapper les données retournées vers l'interface Performer
+      const mappedPerformers: Performer[] = data.map(p => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        role: p.role,
+        is_team_director: p.is_team_director,
+        profile_image: p.profile_image,
+        bio: p.bio,
+        experience_years: p.experience_years,
+        specialties: p.specialties,
+        created_at: p.created_at,
+        updated_at: p.updated_at
+      }));
+      
+      return { success: true, data: mappedPerformers };
       
     } catch (error) {
       console.error('❌ Erreur savePerformers:', error);
@@ -279,7 +290,7 @@ export const teamService = {
     }
   },
 
-  // 🎯 NOUVELLE FONCTION: Récupérer une équipe avec ses performers
+  // 🎯 CORRECTION: Fonction getTeamWithPerformers avec interface Performer importée
   async getTeamWithPerformers(teamId: string): Promise<ServiceResponse<TeamWithPerformers>> {
     try {
       console.log('🔍 Récupération équipe avec performers:', teamId);
@@ -304,9 +315,20 @@ export const teamService = {
         console.warn('⚠️ Erreur récupération performers:', performersError);
       }
       
+      // 🎯 CORRECTION: Mapper les performers vers l'interface Performer
+      const mappedPerformers: Performer[] = performersData ? performersData.map(p => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        role: p.role,
+        position_in_team: p.position_in_team,
+        is_team_director: p.is_team_director
+      })) : [];
+      
       const teamWithPerformers: TeamWithPerformers = {
         ...teamData,
-        performers: performersData || []
+        performers: mappedPerformers
       };
       
       return { success: true, data: teamWithPerformers };
@@ -320,7 +342,7 @@ export const teamService = {
     }
   },
 
-  // 🎯 NOUVELLE FONCTION: Mettre à jour les performers
+  // 🎯 CORRECTION: Fonction updatePerformers avec interface Performer importée
   async updatePerformers(teamId: string, performers: Performer[]): Promise<ServiceResponse<Performer[]>> {
     try {
       console.log('🔄 Mise à jour performers pour équipe:', teamId);
