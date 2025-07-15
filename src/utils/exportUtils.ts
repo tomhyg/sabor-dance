@@ -35,6 +35,22 @@ interface Volunteer {
   email: string;
 }
 
+// Type étendu pour les équipes avec propriétés manquantes
+interface ExtendedPerformanceTeam extends PerformanceTeam {
+  performance_order?: number;
+  performance_duration?: number;
+  scoring?: {
+    technical_score?: number;
+    wow_factor?: number;
+    wow_factor_score?: number;
+    size_score?: number;
+    group_size_score?: number;
+    variety_bonus?: number;
+    style_variety_bonus?: number;
+    total_score?: number;
+  };
+}
+
 export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
 // ================================
@@ -319,7 +335,7 @@ export const exportVolunteerSignups = (
  * Export performance teams with full data including tech rehearsal ratings
  */
 export const exportPerformanceTeams = (
-  teams: PerformanceTeam[], 
+  teams: ExtendedPerformanceTeam[], 
   format: ExportFormat = 'csv',
   includeRatings: boolean = true
 ): void => {
@@ -424,7 +440,7 @@ export const exportPerformanceTeams = (
 export const exportDashboardReport = (
   shifts: VolunteerShift[],
   signups: VolunteerSignup[],
-  teams: PerformanceTeam[],
+  teams: ExtendedPerformanceTeam[],
   volunteers: Volunteer[] = [],
   eventName: string = 'BSF 2025',
   format: ExportFormat = 'csv'
@@ -542,7 +558,7 @@ export const exportDashboardReport = (
  * Export teams for emcee/DJ booth (show night playback view)
  */
 export const exportShowNightPlaybook = (
-  teams: PerformanceTeam[],
+  teams: ExtendedPerformanceTeam[],
   format: ExportFormat = 'csv'
 ): void => {
   // Filter only approved teams with performance order
@@ -592,7 +608,7 @@ export const quickExport = (
   data: {
     shifts?: VolunteerShift[];
     signups?: VolunteerSignup[];
-    teams?: PerformanceTeam[];
+    teams?: ExtendedPerformanceTeam[];
     volunteers?: Volunteer[];
     eventName?: string;
     includeRatings?: boolean;
@@ -672,7 +688,7 @@ const calculateAverageRating = (rating: PerformanceTeam['tech_rehearsal_rating']
   if (!rating) return 0;
   
   const { rating_1, rating_2, rating_3 } = rating;
-  const validRatings = [rating_1, rating_2, rating_3].filter(r => r > 0);
+  const validRatings = [rating_1, rating_2, rating_3].filter((r): r is number => r !== undefined && r > 0);
   
   if (validRatings.length === 0) return 0;
   return validRatings.reduce((sum, r) => sum + r, 0) / validRatings.length;
@@ -709,7 +725,7 @@ export const showExportModal = (
   data: {
     shifts?: VolunteerShift[];
     signups?: VolunteerSignup[];
-    teams?: PerformanceTeam[];
+    teams?: ExtendedPerformanceTeam[];
     volunteers?: Volunteer[];
     eventName?: string;
     includeRatings?: boolean;
@@ -729,7 +745,7 @@ export const exportIncompleteTeams = (
   format: ExportFormat = 'csv'
 ): void => {
   const incompleteTeams = teams.map(team => {
-    const missing = [];
+    const missing: string[] = [];
     if (!team.music_file_url) missing.push('Music File');
     if (!team.performance_video_url) missing.push('Performance Video');
     if (!team.team_photo_url) missing.push('Team Photo');
