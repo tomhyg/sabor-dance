@@ -1,4 +1,4 @@
-// src/components/teams/TeamDetailsModal.tsx - VERSION AVEC PERFORMERS
+// src/components/teams/TeamDetailsModal.tsx - VERSION AVEC PERFORMERS CORRIGÉE
 import React, { useState, useEffect } from 'react';
 import { 
   X, 
@@ -22,9 +22,9 @@ import {
   Crown,
   UserCheck
 } from 'lucide-react';
-import { PerformanceTeam, TechRehearsalRating, DEFAULT_RATING_LABELS } from '../../types/PerformanceTeam';
+import { PerformanceTeam, TechRehearsalRating, DEFAULT_RATING_LABELS, Performer } from '../../types/PerformanceTeam';
 import { getStatusColor, formatDanceStyles } from '../../utils/teamUtils';
-import { teamService, Performer } from '../../services/teamService';
+import { teamService } from '../../services/teamService';
 
 // Import du système de traduction
 import { useTranslation, type Language, DEFAULT_LANGUAGE } from '../../locales';
@@ -124,12 +124,12 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
     comments: team.tech_rehearsal_rating?.comments || '',
   });
 
-  // LOGIQUE DE NOTATION
+  // ✅ CORRECTION: LOGIQUE DE NOTATION avec type guards
   const canRate = isOrganizer && (team.status === 'submitted' || team.status === 'approved');
   const hasRating = team.tech_rehearsal_rating && (
-    team.tech_rehearsal_rating.rating_1 > 0 || 
-    team.tech_rehearsal_rating.rating_2 > 0 || 
-    team.tech_rehearsal_rating.rating_3 > 0
+    (team.tech_rehearsal_rating.rating_1 && team.tech_rehearsal_rating.rating_1 > 0) || 
+    (team.tech_rehearsal_rating.rating_2 && team.tech_rehearsal_rating.rating_2 > 0) || 
+    (team.tech_rehearsal_rating.rating_3 && team.tech_rehearsal_rating.rating_3 > 0)
   );
 
   const handleSaveRating = async () => {
@@ -501,8 +501,8 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                       // Directeur en premier
                       if (a.is_team_director && !b.is_team_director) return -1;
                       if (!a.is_team_director && b.is_team_director) return 1;
-                      // Puis par position
-                      return (a.position_in_team || 999) - (b.position_in_team || 999);
+                      // Puis alphabétique
+                      return a.name.localeCompare(b.name);
                     })
                     .map((performer, index) => (
                       <PerformerCard key={performer.id || index} performer={performer} index={index} />
@@ -633,24 +633,24 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                 {/* Grille des 3 critères */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <StarRating
-                    label={editingRating.rating_1_label}
-                    rating={editingRating.rating_1}
+                    label={editingRating.rating_1_label || DEFAULT_RATING_LABELS.rating_1_label}
+                    rating={editingRating.rating_1 || 0}
                     onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_1: rating })) : undefined}
                     onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_1_label: label })) : undefined}
                     readonly={!isEditingRating}
                   />
                   
                   <StarRating
-                    label={editingRating.rating_2_label}
-                    rating={editingRating.rating_2}
+                    label={editingRating.rating_2_label || DEFAULT_RATING_LABELS.rating_2_label}
+                    rating={editingRating.rating_2 || 0}
                     onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_2: rating })) : undefined}
                     onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_2_label: label })) : undefined}
                     readonly={!isEditingRating}
                   />
                   
                   <StarRating
-                    label={editingRating.rating_3_label}
-                    rating={editingRating.rating_3}
+                    label={editingRating.rating_3_label || DEFAULT_RATING_LABELS.rating_3_label}
+                    rating={editingRating.rating_3 || 0}
                     onChange={isEditingRating ? (rating) => setEditingRating(prev => ({ ...prev, rating_3: rating })) : undefined}
                     onLabelChange={isEditingRating ? (label) => setEditingRating(prev => ({ ...prev, rating_3_label: label })) : undefined}
                     readonly={!isEditingRating}
@@ -664,7 +664,7 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                   </label>
                   {isEditingRating ? (
                     <textarea
-                      value={editingRating.comments}
+                      value={editingRating.comments || ''}
                       onChange={(e) => setEditingRating(prev => ({ ...prev, comments: e.target.value }))}
                       className="w-full p-4 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-colors"
                       rows={4}
@@ -724,27 +724,27 @@ export const TeamDetailsModal: React.FC<TeamDetailsModalProps> = ({
                   )}
                 </div>
               </div>
-            ) : hasRating ? (
-              // Vue lecture seule
+            ) : hasRating && team.tech_rehearsal_rating ? (
+              // ✅ CORRECTION: Vue lecture seule avec sécurité TypeScript
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <StarRating
-                    label={team.tech_rehearsal_rating!.rating_1_label}
-                    rating={team.tech_rehearsal_rating!.rating_1}
+                    label={team.tech_rehearsal_rating.rating_1_label || DEFAULT_RATING_LABELS.rating_1_label}
+                    rating={team.tech_rehearsal_rating.rating_1 || 0}
                     readonly={true}
                   />
                   <StarRating
-                    label={team.tech_rehearsal_rating!.rating_2_label}
-                    rating={team.tech_rehearsal_rating!.rating_2}
+                    label={team.tech_rehearsal_rating.rating_2_label || DEFAULT_RATING_LABELS.rating_2_label}
+                    rating={team.tech_rehearsal_rating.rating_2 || 0}
                     readonly={true}
                   />
                   <StarRating
-                    label={team.tech_rehearsal_rating!.rating_3_label}
-                    rating={team.tech_rehearsal_rating!.rating_3}
+                    label={team.tech_rehearsal_rating.rating_3_label || DEFAULT_RATING_LABELS.rating_3_label}
+                    rating={team.tech_rehearsal_rating.rating_3 || 0}
                     readonly={true}
                   />
                 </div>
-                {team.tech_rehearsal_rating?.comments && (
+                {team.tech_rehearsal_rating.comments && (
                   <div className="bg-slate-800/30 rounded-xl p-6">
                     <label className="block text-sm font-medium text-gray-300 mb-2">{safeTranslate('comments', 'Commentaires')}</label>
                     <p className="text-gray-300 italic">{team.tech_rehearsal_rating.comments}</p>

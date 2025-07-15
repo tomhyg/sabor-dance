@@ -20,6 +20,49 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
 
   return (
     <div className="min-h-screen bg-black overflow-hidden">
+      {/* 🎯 CORRECTION: Styles CSS intégrés */}
+      <style>{`
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(50px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        .animate-slide-up {
+          animation: slide-up 1s ease-out forwards;
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 1s ease-out forwards;
+        }
+        
+        .delay-200 {
+          animation-delay: 0.2s;
+        }
+        
+        .delay-400 {
+          animation-delay: 0.4s;
+        }
+        
+        .delay-600 {
+          animation-delay: 0.6s;
+        }
+      `}</style>
+
       {/* Hero Section with DORA-style gradients */}
       <div className="relative min-h-screen flex items-center justify-center">
         {/* Animated Background Gradients */}
@@ -241,49 +284,6 @@ const HomePage: React.FC<HomePageProps> = ({ t, setCurrentView, setShowAuth }) =
           </div>
         </div>
       </div>
-      
-      {/* Custom Animations */}
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            opacity: 0;
-            transform: translateY(50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        
-        .animate-slide-up {
-          animation: slide-up 1s ease-out forwards;
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 1s ease-out forwards;
-        }
-        
-        .delay-200 {
-          animation-delay: 0.2s;
-        }
-        
-        .delay-400 {
-          animation-delay: 0.4s;
-        }
-        
-        .delay-600 {
-          animation-delay: 0.6s;
-        }
-      `}</style>
     </div>
   );
 };

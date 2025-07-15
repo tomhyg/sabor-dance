@@ -74,9 +74,9 @@ const GridView: React.FC<GridViewProps> = ({
     { value: 'setup', label: translate('gridViewDetails.filters.setup') }
   ];
 
-  // Générer les dates de la semaine
-  const getWeekDates = (date: Date) => {
-    const week = [];
+  // ✅ CORRECTION: Génération des dates de la semaine avec typage explicite
+  const getWeekDates = (date: Date): Date[] => {
+    const week: Date[] = [];
     const startOfWeek = new Date(date);
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
