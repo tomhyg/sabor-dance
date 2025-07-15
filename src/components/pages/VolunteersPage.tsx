@@ -650,7 +650,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
 
       if (error) {
         console.error('❌ Erreur Supabase inscription:', error);
-        alert(`Erreur: ${error.message || 'Impossible de s\'inscrire'}`);
+        alert(`Erreur: ${error?.message || 'Impossible de s\'inscrire'}`);
         return;
       }
 
