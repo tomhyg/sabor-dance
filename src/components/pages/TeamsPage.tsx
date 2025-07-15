@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Filter, Search, Download, RefreshCw, Users, CheckCircle, Target, BarChart3, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react';
 import { useTeams } from '../../hooks/useTeams';
-import { useTeamActions } from '../../hooks/useTeamActions';
-import { PerformanceTeam, TechRehearsalRating } from '../../types/PerformanceTeam';
+import { useTeamActions, CreateTeamData } from '../../hooks/useTeamActions';
+import { PerformanceTeam, TechRehearsalRating, Performer } from '../../types/PerformanceTeam';
 import { TeamCard } from '../teams/TeamCard';
 import { TeamCardHorizontal } from '../teams/TeamCardHorizontal';
 import { TeamCreateModal } from '../teams/TeamCreateModal';
@@ -17,29 +17,6 @@ interface TeamsPageProps {
   currentUser: any;
   translate: (key: string) => string;
   currentLanguage?: Language;
-}
-
-// 🎯 CORRECTION: Interface pour les données de création d'équipe compatible avec le modal
-interface CreateTeamFormData {
-  team_name: string;
-  director_name: string;
-  director_email: string;
-  studio_name?: string;
-  city: string;
-  country: string;
-  song_title: string;
-  song_artist?: string;
-  group_size: number;
-  dance_styles: string[];
-  backup_team: boolean;
-  // 🎯 CORRECTION: Performers avec la structure complète attendue
-  performers: Array<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    experience_level: string;
-  }>;
 }
 
 // 🎯 NOUVEAUTÉ: Types et options de filtres
@@ -166,39 +143,15 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
   });
 
   // 🎬 HANDLERS
-  // 🎯 CORRECTION: Handler pour la création d'équipe avec conversion de type
-  const handleCreateTeam = async (formData: CreateTeamFormData) => {
-    // Générer des performers par défaut si pas fournis
-    const performersWithDefaults = formData.performers && formData.performers.length > 0 
-      ? formData.performers 
-      : [
-          {
-            id: `temp-${Date.now()}`,
-            name: formData.director_name,
-            email: formData.director_email,
-            role: 'Director',
-            experience_level: 'advanced'
-          }
-        ];
+  // ✅ CORRECTION: Handler pour la création d'équipe avec le bon type
+  const handleCreateTeam = async (teamData: CreateTeamData & { performers: Performer[] }) => {
+    console.log('🎯 Création équipe avec données:', teamData);
     
-    // 🎯 CORRECTION: Convertir vers le type attendu par useTeamActions
-    const teamDataForAPI = {
-      team_name: formData.team_name,
-      director_name: formData.director_name,
-      director_email: formData.director_email,
-      studio_name: formData.studio_name,
-      city: formData.city,
-      country: formData.country,
-      song_title: formData.song_title,
-      song_artist: formData.song_artist,
-      group_size: formData.group_size,
-      dance_styles: formData.dance_styles,
-      // backup_team est exclu car pas dans CreateTeamData
-      performers: performersWithDefaults
-    };
-    
-    const newTeam = await createTeam(teamDataForAPI);
-    return !!newTeam;
+    const success = await createTeam(teamData);
+    if (success) {
+      setShowCreateTeam(false);
+    }
+    return success;
   };
 
   const handleEditTeam = (team: PerformanceTeam) => {
@@ -572,7 +525,7 @@ export const TeamsPage: React.FC<TeamsPageProps> = ({
         )}
       </div>
 
-      {/* Modals avec support des langues */}
+      {/* ✅ CORRECTION: Modals avec le bon type */}
       {showCreateTeam && (
         <TeamCreateModal
           currentUser={currentUser}
