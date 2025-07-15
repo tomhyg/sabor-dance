@@ -1,4 +1,4 @@
-// src/components/SaborDanceApp.tsx - Version simplifiée avec notifications modulaires
+// src/components/SaborDanceApp.tsx - Version corrigée sans données de démo
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Music, LogIn, LogOut, User, Plus, Clock, X, CheckCircle, Eye, EyeOff, Star, MessageSquare, Copy, Bell, Play, Instagram, ExternalLink, Heart, UserCheck, ArrowRight, BarChart3 } from 'lucide-react';
 
@@ -8,6 +8,7 @@ import { useTranslation, LANGUAGE_LABELS, type Language, DEFAULT_LANGUAGE } from
 // Import des hooks et services mis à jour
 import { useAuth } from '../hooks/useAuth';
 import { volunteerService } from '../services/volunteerService';
+import { teamService } from '../services/teamService';
 
 // Import des composants pages
 import HomePage from './pages/HomePage';
@@ -27,7 +28,7 @@ import { UrgentTasksModal } from './notifications/UrgentTasksModal';
 import { useNotifications } from '../hooks/useNotifications';
 import { UserRole } from '../services/notifications/notificationService';
 
-// Types unifiés
+// 🎯 CORRECTION: Types unifiés avec statuts compatibles
 interface User {
   id: string;
   email: string;
@@ -58,6 +59,7 @@ interface Event {
   created_from_template?: string;
 }
 
+// 🎯 CORRECTION: VolunteerShift avec statuts compatibles incluant 'unpublished'
 interface VolunteerShift {
   id: string;
   title: string;
@@ -68,7 +70,7 @@ interface VolunteerShift {
   max_volunteers: number;
   current_volunteers: number;
   role_type: string;
-  status: 'draft' | 'live' | 'full' | 'cancelled';
+  status: 'draft' | 'live' | 'full' | 'cancelled' | 'unpublished'; // 🎯 AJOUT: 'unpublished'
   check_in_required: boolean;
 }
 
@@ -83,7 +85,7 @@ interface VolunteerSignup {
   qr_code?: string;
 }
 
-// Fonction utilitaire pour convertir les données Supabase vers le format local
+// 🎯 CORRECTION: Fonction utilitaire pour convertir les données Supabase vers le format local
 const convertSupabaseShiftToLocal = (supabaseShift: any): VolunteerShift => ({
   id: supabaseShift.id,
   title: supabaseShift.title,
@@ -257,6 +259,22 @@ const SaborDanceApp = () => {
         }
       }
 
+      // 🎯 CORRECTION: Charger les vraies équipes depuis Supabase
+      try {
+        const teamsResult = await teamService.getTeams('a9d1c983-1456-4007-9aec-b297dd095ff7');
+        
+        if (teamsResult.success && teamsResult.data) {
+          setPerformanceTeams(teamsResult.data);
+          console.log('✅ Équipes chargées depuis Supabase:', teamsResult.data);
+        } else {
+          console.warn('⚠️ Erreur chargement équipes:', teamsResult.message);
+          setPerformanceTeams([]); // 🎯 SUPPRESSION: Plus de données de démo
+        }
+      } catch (error) {
+        console.error('❌ Erreur chargement équipes:', error);
+        setPerformanceTeams([]);
+      }
+
       // Ajouter l'événement BSF
       setEvents([{
         id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
@@ -264,59 +282,10 @@ const SaborDanceApp = () => {
         start_date: '2025-07-15',
         end_date: '2025-07-20',
         location: 'Boston, MA, USA',
-        required_volunteer_hours: 8,
+        required_volunteer_hours: 9, // 🎯 CORRECTION: 9h selon feedback
         status: 'live',
         team_submission_deadline: '2025-06-01T23:59:59Z'
       }]);
-
-      // Données de démo pour les équipes
-      setPerformanceTeams([
-        {
-          id: '1',
-          event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
-          team_name: 'Boston Salsa Collective',
-          director_name: 'María González',
-          director_email: 'maria@bostonsalsa.com',
-          studio_name: 'Boston Latin Dance Academy',
-          city: 'Boston',
-          country: 'USA',
-          status: 'submitted',
-          song_title: 'La Vida Es Un Carnaval',
-          group_size: 8,
-          dance_styles: ['Salsa'],
-          can_edit_until: '2025-06-15T23:59:59Z',
-          backup_team: false,
-          created_by: 'teamdir1-id',
-          created_at: '2025-01-01T10:00:00Z'
-        },
-        {
-          id: '2',
-          team_name: 'Bachata Elegance',
-          event_id: 'a9d1c983-1456-4007-9aec-b297dd095ff7',
-          director_name: 'Carlos Rodriguez',
-          director_email: 'carlos@bachataelegance.com',
-          studio_name: 'Elegance Dance Studio',
-          city: 'Madrid',
-          country: 'Spain',
-          status: 'approved',
-          song_title: 'Obsesión',
-          group_size: 6,
-          dance_styles: ['Bachata'],
-          performance_order: 1,
-          scoring: {
-            group_size_score: 7,
-            wow_factor_score: 9,
-            technical_score: 8,
-            style_variety_bonus: 0,
-            total_score: 24
-          },
-          organizer_notes: 'Excellent technique, great stage presence',
-          can_edit_until: '2025-06-15T23:59:59Z',
-          backup_team: false,
-          created_by: 'teamdir2-id',
-          created_at: '2025-01-02T14:30:00Z'
-        }
-      ]);
 
     } catch (error) {
       console.error('Erreur chargement données:', error);
