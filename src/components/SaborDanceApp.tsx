@@ -1,5 +1,5 @@
 // src/components/SaborDanceApp.tsx - Version corrigée avec notifications réelles
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, Users, Music, LogIn, LogOut, User, Plus, Clock, X, CheckCircle, Eye, EyeOff, Star, MessageSquare, Copy, Bell, Play, Instagram, ExternalLink, Heart, UserCheck, ArrowRight, BarChart3 } from 'lucide-react';
 
 // Import du nouveau système de traduction
@@ -23,7 +23,7 @@ import { AuthRouter } from './AuthRouter';
 import { PerformanceTeam } from '../types/PerformanceTeam';
 
 // ===== IMPORT DU NOUVEAU SYSTÈME DE NOTIFICATIONS =====
-import { autoInitNotifications } from '../services/initNotifications';
+import { autoInitNotifications, type NotificationInitConfig } from '../services/initNotifications';
 import { UrgentTasksBadge } from './notifications/UrgentTasksBadge';
 import { UrgentTasksModal } from './notifications/UrgentTasksModal';
 import { useNotifications } from '../hooks/useNotifications';
@@ -185,6 +185,9 @@ const SaborDanceApp = () => {
   // Conversion utilisateur
   const currentUser: User | null = supabaseUser ? convertSupabaseUserToLocal(supabaseUser as any) : null;
 
+  // ===== RÉFÉRENCE POUR LE SYSTÈME DE NOTIFICATIONS =====
+  const notificationSystemRef = useRef<ReturnType<typeof autoInitNotifications> | null>(null);
+
   // ===== NOUVEAU SYSTÈME DE NOTIFICATIONS =====
   const { 
     urgentTasks, 
@@ -219,12 +222,32 @@ const SaborDanceApp = () => {
   useEffect(() => {
     console.log('🚀 Initialisation du système de notifications...');
     
-    // Initialiser le système de notifications
-    const notificationSystem = autoInitNotifications();
+    try {
+      // Initialiser le système de notifications
+      const notificationSystem = autoInitNotifications();
+      
+      // 🎯 CORRECTION: Vérifier si le système est correctement initialisé
+      if (notificationSystem) {
+        notificationSystemRef.current = notificationSystem;
+        console.log('✅ Système de notifications initialisé avec succès');
+      } else {
+        console.warn('⚠️ Échec de l\'initialisation du système de notifications');
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'initialisation des notifications:', error);
+    }
     
+    // Cleanup function
     return () => {
       console.log('🧹 Nettoyage du système de notifications');
-      notificationSystem.cleanup();
+      if (notificationSystemRef.current) {
+        try {
+          notificationSystemRef.current.cleanup();
+          notificationSystemRef.current = null;
+        } catch (error) {
+          console.error('❌ Erreur lors du nettoyage des notifications:', error);
+        }
+      }
     };
   }, []);
 
