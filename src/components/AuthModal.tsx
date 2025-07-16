@@ -22,21 +22,21 @@ const AuthModal: React.FC<AuthModalProps> = ({
   onResetPassword,
   t
 }) => {
-  // États du formulaire
+  // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
-  // Données utilisateur pour inscription (SIMPLIFIÉ)
+  // User data for registration (SIMPLIFIED)
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [phone, setPhone] = useState('');
-  const [countryCode, setCountryCode] = useState('+33'); // Défaut France
+  const [countryCode, setCountryCode] = useState('+1'); // Default US
   const [role, setRole] = useState<'volunteer' | 'team_director' | 'artist' | 'attendee'>('volunteer');
 
-  // États UI
+  // UI states
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -53,12 +53,12 @@ const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleLogin = async () => {
     if (!validateEmail(email)) {
-      setError('Email invalide');
+      setError('Invalid email');
       return;
     }
 
     if (!password) {
-      setError('Mot de passe requis');
+      setError('Password required');
       return;
     }
 
@@ -77,32 +77,32 @@ const AuthModal: React.FC<AuthModalProps> = ({
   const handleRegister = async () => {
     // Validation
     if (!lastName.trim()) {
-      setError('Nom requis');
+      setError('Last name required');
       return;
     }
 
     if (!firstName.trim()) {
-      setError('Prénom requis');
+      setError('First name required');
       return;
     }
 
     if (!validateEmail(email)) {
-      setError('Email invalide');
+      setError('Invalid email');
       return;
     }
 
     if (!phone.trim()) {
-      setError('Téléphone requis');
+      setError('Phone required');
       return;
     }
 
     if (!validatePassword(password)) {
-      setError('Le mot de passe doit contenir au moins 6 caractères');
+      setError('Password must be at least 6 characters');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
+      setError('Passwords do not match');
       return;
     }
 
@@ -111,8 +111,8 @@ const AuthModal: React.FC<AuthModalProps> = ({
     const userData = {
       full_name: `${firstName.trim()} ${lastName.trim()}`,
       role: role,
-      phone: `${countryCode} ${phone.trim()}`, // Combine l'indicatif et le numéro
-      // Garder les champs individuels pour référence
+      phone: `${countryCode} ${phone.trim()}`, // Combine country code and number
+      // Keep individual fields for reference
       first_name: firstName.trim(),
       last_name: lastName.trim()
     };
@@ -122,7 +122,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
     if (result.error) {
       setError(result.error.message);
     } else {
-      setMessage(result.message || 'Inscription réussie ! Vérifiez votre email.');
+      setMessage(result.message || 'Registration successful! Check your email.');
       setTimeout(() => {
         setShowAuth(false);
         resetForm();
@@ -144,7 +144,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleResetPassword = async () => {    
     if (!validateEmail(email)) {
-      setError('Email invalide');
+      setError('Invalid email');
       return;
     }
 
@@ -154,8 +154,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
     if (result.error) {
       setError(result.error.message);
     } else {
-      setMessage(result.message || 'Email de réinitialisation envoyé !');
-      setShowResetPassword(false);
+      setMessage(result.message || 'Password reset email sent!');
     }
     setLoading(false);
   };
@@ -164,11 +163,9 @@ const AuthModal: React.FC<AuthModalProps> = ({
     setEmail('');
     setPassword('');
     setConfirmPassword('');
-    setLastName('');
     setFirstName('');
+    setLastName('');
     setPhone('');
-    setCountryCode('+33'); // Reset à France par défaut
-    setRole('volunteer');
     setError('');
     setMessage('');
     setShowResetPassword(false);
@@ -178,111 +175,107 @@ const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl transform transition-all duration-300 scale-100 opacity-100">
+        
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {showResetPassword 
-              ? 'Réinitialiser le mot de passe'
-              : authMode === 'login' 
-                ? 'Connexion'
-                : 'Inscription'
-            }
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">
+            {showResetPassword ? 'Reset Password' : 
+             authMode === 'login' ? 'Sign In' : 'Create Account'}
           </h2>
           <button
-            onClick={() => {
-              setShowAuth(false);
-              resetForm();
-            }}
-            className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-all duration-200"
+            onClick={() => setShowAuth(false)}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
           >
-            <X size={20} />
+            <X size={24} />
           </button>
         </div>
 
-        {/* Messages */}
+        {/* Error message */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+          <div className="mb-4 p-4 bg-red-100 border border-red-300 text-red-700 rounded-xl">
             {error}
           </div>
         )}
-        
+
+        {/* Success message */}
         {message && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg text-sm">
+          <div className="mb-4 p-4 bg-green-100 border border-green-300 text-green-700 rounded-xl">
             {message}
           </div>
         )}
 
-        {/* Formulaire de réinitialisation */}
+        {/* Password reset form */}
         {showResetPassword && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Mail className="inline w-4 h-4 mr-1" />
-                Email
+                Email Address
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400"
-                placeholder="votre@email.com"
+                placeholder="your@email.com"
                 style={{ color: '#111827' }}
+                required
               />
             </div>
             
             <button
               onClick={handleResetPassword}
               disabled={loading}
-              className="w-full bg-gradient-to-r from-violet-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-violet-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-violet-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-violet-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 mt-6"
             >
-              {loading ? 'Envoi...' : 'Envoyer le lien'}
+              {loading ? 'Sending...' : 'Send Reset Link'}
             </button>
             
             <button
               onClick={() => setShowResetPassword(false)}
               className="w-full text-violet-600 hover:text-violet-700 font-semibold"
             >
-              Retour à la connexion
+              Back to Sign In
             </button>
           </div>
         )}
 
-        {/* Formulaire principal */}
+        {/* Main form */}
         {!showResetPassword && (
           <div className="space-y-4">
-            {/* INSCRIPTION : Nom */}
+            {/* REGISTER: Last Name */}
             {authMode === 'register' && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <User className="inline w-4 h-4 mr-1" />
-                  Nom *
+                  Last Name *
                 </label>
                 <input
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400"
-                  placeholder="Votre nom de famille"
+                  placeholder="Your last name"
                   style={{ color: '#111827' }}
                   required
                 />
               </div>
             )}
 
-            {/* INSCRIPTION : Prénom */}
+            {/* REGISTER: First Name */}
             {authMode === 'register' && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <User className="inline w-4 h-4 mr-1" />
-                  Prénom *
+                  First Name *
                 </label>
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400"
-                  placeholder="Votre prénom"
+                  placeholder="Your first name"
                   style={{ color: '#111827' }}
                   required
                 />
@@ -293,55 +286,47 @@ const AuthModal: React.FC<AuthModalProps> = ({
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Mail className="inline w-4 h-4 mr-1" />
-                Email *
+                Email Address *
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400"
-                placeholder="votre@email.com"
+                placeholder="your@email.com"
                 style={{ color: '#111827' }}
                 required
               />
             </div>
 
-            {/* INSCRIPTION : Téléphone avec sélecteur de pays */}
+            {/* REGISTER: Phone */}
             {authMode === 'register' && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <Phone className="inline w-4 h-4 mr-1" />
-                  Téléphone *
+                  Phone Number *
                 </label>
-                <div className="flex">
-                  <select 
+                <div className="flex gap-2">
+                  <select
                     value={countryCode}
                     onChange={(e) => setCountryCode(e.target.value)}
-                    className="px-3 py-3 border-2 border-gray-200 border-r-0 rounded-l-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white"
+                    className="px-3 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white"
                     style={{ color: '#111827' }}
                   >
                     <option value="+1">🇺🇸 +1</option>
                     <option value="+33">🇫🇷 +33</option>
                     <option value="+34">🇪🇸 +34</option>
-                    <option value="+44">🇬🇧 +44</option>
-                    <option value="+49">🇩🇪 +49</option>
                     <option value="+39">🇮🇹 +39</option>
-                    <option value="+351">🇵🇹 +351</option>
-                    <option value="+52">🇲🇽 +52</option>
-                    <option value="+57">🇨🇴 +57</option>
-                    <option value="+58">🇻🇪 +58</option>
-                    <option value="+507">🇵🇦 +507</option>
-                    <option value="+506">🇨🇷 +506</option>
-                    <option value="+53">🇨🇺 +53</option>
-                    <option value="+1-809">🇩🇴 +1-809</option>
-                    <option value="+1-787">🇵🇷 +1-787</option>
+                    <option value="+49">🇩🇪 +49</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+61">🇦🇺 +61</option>
                   </select>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="flex-1 px-4 py-3 border-2 border-gray-200 border-l-0 rounded-r-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400"
-                    placeholder="6 12 34 56 78"
+                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white placeholder-gray-400"
+                    placeholder="123-456-7890"
                     style={{ color: '#111827' }}
                     required
                   />
@@ -349,32 +334,32 @@ const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* INSCRIPTION : Rôle */}
+            {/* REGISTER: Role */}
             {authMode === 'register' && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Rôle *
+                  Role *
                 </label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
+                  onChange={(e) => setRole(e.target.value as 'volunteer' | 'team_director' | 'artist' | 'attendee')}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all duration-200 text-gray-900 bg-white"
                   style={{ color: '#111827' }}
                   required
                 >
-                  <option value="volunteer">🙋‍♀️ Bénévole - Je veux aider pendant l'événement</option>
-                  <option value="team_director">💃 Directeur d'équipe - Je dirige une équipe de danse</option>
-                  <option value="artist">🎭 Artiste - Je suis un performer/instructeur</option>
-                  <option value="attendee">🎪 Participant - Je viens profiter de l'événement</option>
+                  <option value="volunteer">🙋‍♀️ Volunteer</option>
+                  <option value="team_director">💃 Team Director</option>
+                  <option value="artist">🎨 Artist/Instructor</option>
+                  <option value="attendee">🎫 Attendee</option>
                 </select>
               </div>
             )}
 
-            {/* Mot de passe */}
+            {/* Password */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 <Lock className="inline w-4 h-4 mr-1" />
-                Mot de passe *
+                Password *
               </label>
               <div className="relative">
                 <input
@@ -396,12 +381,12 @@ const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             </div>
 
-            {/* INSCRIPTION : Confirmation mot de passe */}
+            {/* REGISTER: Confirm Password */}
             {authMode === 'register' && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   <Lock className="inline w-4 h-4 mr-1" />
-                  Confirmer le mot de passe *
+                  Confirm Password *
                 </label>
                 <div className="relative">
                   <input
@@ -424,26 +409,26 @@ const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* Bouton principal */}
+            {/* Main button */}
             <button
               onClick={handleSubmit}
               disabled={loading}
               className="w-full bg-gradient-to-r from-violet-500 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-violet-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 mt-6"
             >
-              {loading ? 'Chargement...' : 
-               authMode === 'login' ? 'Se connecter' : 'Créer mon compte'}
+              {loading ? 'Loading...' : 
+               authMode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           </div>
         )}
 
-        {/* Liens de navigation */}
+        {/* Navigation links */}
         {!showResetPassword && authMode === 'login' && (
           <div className="mt-6 space-y-3 text-center">
             <button
               onClick={() => setShowResetPassword(true)}
               className="text-violet-600 hover:text-violet-700 font-semibold text-sm"
             >
-              Mot de passe oublié ?
+              Forgot password?
             </button>
             <div>
               <button
@@ -454,7 +439,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
                 }}
                 className="text-violet-600 hover:text-violet-700 font-semibold"
               >
-                Pas encore de compte ? S'inscrire
+                No account? Sign up
               </button>
             </div>
           </div>
@@ -470,7 +455,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
               }}
               className="text-violet-600 hover:text-violet-700 font-semibold"
             >
-              Déjà un compte ? Se connecter
+              Already have an account? Sign in
             </button>
           </div>
         )}

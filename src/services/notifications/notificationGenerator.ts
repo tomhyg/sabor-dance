@@ -7,44 +7,44 @@ export const generateNotificationsFromData = (
   volunteerShifts: any[], 
   performanceTeams: any[]
 ) => {
-  console.log(`🔔 Génération notifications pour ${role}:`, {
+  console.log(`🔔 Generating notifications for ${role}:`, {
     volunteerShifts: volunteerShifts?.length || 0,
     performanceTeams: performanceTeams?.length || 0
   });
 
-  // ✅ Validation des données d'entrée
+  // ✅ Validate input data
   if (!Array.isArray(volunteerShifts)) volunteerShifts = [];
   if (!Array.isArray(performanceTeams)) performanceTeams = [];
 
   try {
-    // 🔥 NOTIFICATIONS ADMIN/ORGANIZER
+    // 🔥 ADMIN/ORGANIZER NOTIFICATIONS
     if (role === 'organizer' || role === 'admin') {
       generateManagerNotifications(service, role, volunteerShifts, performanceTeams);
     }
 
-    // 🙋‍♀️ NOTIFICATIONS BÉNÉVOLE
+    // 🙋‍♀️ VOLUNTEER NOTIFICATIONS
     if (role === 'volunteer') {
       generateVolunteerNotifications(service, role, volunteerShifts);
     }
 
-    // 💃 NOTIFICATIONS TEAM DIRECTOR
+    // 💃 TEAM DIRECTOR NOTIFICATIONS
     if (role === 'team_director') {
       generateTeamDirectorNotifications(service, role, performanceTeams);
     }
 
   } catch (error) {
-    console.error('Erreur génération notifications:', error);
+    console.error('Error generating notifications:', error);
   }
 };
 
-// ✅ Notifications pour les gestionnaires
+// ✅ Notifications for managers
 const generateManagerNotifications = (
   service: NotificationService,
   role: UserRole,
   shifts: any[],
   teams: any[]
 ) => {
-  // 🚨 CRÉNEAUX SANS BÉNÉVOLES (CRITIQUE)
+  // 🚨 SHIFTS WITHOUT VOLUNTEERS (CRITICAL)
   const emptyShifts = shifts.filter(shift => 
     shift?.status === 'live' && 
     (shift.current_volunteers === 0 || shift.current_volunteers == null)
@@ -54,19 +54,18 @@ const generateManagerNotifications = (
     service.addTask(role, {
       type: 'critical',
       category: 'volunteer',
-      title: `${emptyShifts.length} créneaux sans bénévoles`,
-      description: `Créneaux urgents: ${emptyShifts.slice(0, 3).map(s => s.title || 'Sans titre').join(', ')}${emptyShifts.length > 3 ? '...' : ''}`,
+      title: `${emptyShifts.length} shifts without volunteers`,
+      description: `Urgent shifts: ${emptyShifts.slice(0, 3).map(s => s.title || 'Untitled').join(', ')}${emptyShifts.length > 3 ? '...' : ''}`,
       count: emptyShifts.length,
       urgency: 'high',
-      deadline: 'Action immédiate',
-      action: 'Voir créneaux',
+      action: 'View shifts',
       icon: 'Users',
       color: 'red',
       relatedData: { shiftIds: emptyShifts.map(s => s.id) }
     });
   }
 
-  // ⚠️ CRÉNEAUX SOUS-REMPLIS
+  // ⚠️ UNDERSTAFFED SHIFTS
   const partialShifts = shifts.filter(shift => 
     shift?.status === 'live' && 
     shift.current_volunteers > 0 && 
@@ -78,19 +77,18 @@ const generateManagerNotifications = (
     service.addTask(role, {
       type: 'urgent',
       category: 'volunteer',
-      title: `${partialShifts.length} créneaux sous-remplis`,
-      description: `Créneaux nécessitant plus de bénévoles (< 70% de capacité)`,
+      title: `${partialShifts.length} understaffed shifts`,
+      description: `Shifts needing more volunteers (< 70% capacity)`,
       count: partialShifts.length,
       urgency: 'medium',
-      deadline: 'À surveiller',
-      action: 'Promouvoir',
+      action: 'Promote',
       icon: 'Users',
       color: 'orange',
       relatedData: { shiftIds: partialShifts.map(s => s.id) }
     });
   }
 
-  // 🎵 ÉQUIPES SANS MUSIQUE
+  // 🎵 TEAMS WITHOUT MUSIC
   const teamsWithoutMusic = teams.filter(team => 
     team && 
     (team.status === 'submitted' || team.status === 'approved') && 
@@ -101,50 +99,47 @@ const generateManagerNotifications = (
     service.addTask(role, {
       type: 'urgent',
       category: 'team',
-      title: `${teamsWithoutMusic.length} équipes sans musique`,
-      description: `Équipes qui doivent encore uploader leur fichier musical`,
+      title: `${teamsWithoutMusic.length} teams without music`,
+      description: `Teams that still need to upload their music file`,
       count: teamsWithoutMusic.length,
       urgency: 'high',
-      deadline: 'Deadline proche',
-      action: 'Contacter équipes',
+      action: 'Contact teams',
       icon: 'Music',
       color: 'orange',
       relatedData: { teamIds: teamsWithoutMusic.map(t => t.id) }
     });
   }
 
-  // 📋 ÉQUIPES À APPROUVER
+  // 📋 TEAMS TO APPROVE
   const pendingTeams = teams.filter(team => team?.status === 'submitted');
   
   if (pendingTeams.length > 0) {
     service.addTask(role, {
-      type: 'action',
+      type: 'urgent', // CORRECTION: 'action' changé en 'urgent'
       category: 'approval',
-      title: `${pendingTeams.length} équipes à examiner`,
-      description: `Nouvelles soumissions en attente d'approbation`,
+      title: `${pendingTeams.length} teams to review`,
+      description: `New submissions awaiting approval`,
       count: pendingTeams.length,
       urgency: 'medium',
-      deadline: 'À traiter sous 48h',
-      action: 'Examiner',
+      action: 'Review',
       icon: 'FileText',
       color: 'blue',
       relatedData: { teamIds: pendingTeams.map(t => t.id) }
     });
   }
 
-  // 📊 BROUILLONS À PUBLIER
+  // 📊 DRAFTS TO PUBLISH
   const draftShifts = shifts.filter(shift => shift?.status === 'draft');
   
   if (draftShifts.length > 0) {
     service.addTask(role, {
       type: 'reminder',
-      category: 'event',
-      title: `${draftShifts.length} créneaux en brouillon`,
-      description: `Créneaux prêts à être publiés pour les bénévoles`,
+      category: 'shift', // CORRECTION: 'event' changé en 'shift'
+      title: `${draftShifts.length} draft shifts`,
+      description: `Shifts ready to be published for volunteers`,
       count: draftShifts.length,
       urgency: 'low',
-      deadline: 'Quand prêt',
-      action: 'Publier',
+      action: 'Publish',
       icon: 'Calendar',
       color: 'blue',
       relatedData: { shiftIds: draftShifts.map(s => s.id) }
@@ -152,13 +147,13 @@ const generateManagerNotifications = (
   }
 };
 
-// ✅ Notifications pour les bénévoles
+// ✅ Notifications for volunteers
 const generateVolunteerNotifications = (
   service: NotificationService,
   role: UserRole,
   shifts: any[]
 ) => {
-  // 🙋‍♀️ CRÉNEAUX AYANT BESOIN D'AIDE
+  // 🙋‍♀️ SHIFTS NEEDING HELP
   const urgentShifts = shifts.filter(shift => 
     shift?.status === 'live' && 
     shift.max_volunteers > 0 &&
@@ -167,21 +162,20 @@ const generateVolunteerNotifications = (
   
   if (urgentShifts.length > 0) {
     service.addTask(role, {
-      type: 'opportunity',
+      type: 'urgent', // CORRECTION: 'opportunity' changé en 'urgent'
       category: 'shift',
-      title: `${urgentShifts.length} créneaux ont besoin d'aide`,
-      description: `Des créneaux importants manquent de bénévoles. Votre aide est précieuse !`,
+      title: `${urgentShifts.length} shifts need help`,
+      description: `Important shifts are short on volunteers. Your help is valuable!`,
       count: urgentShifts.length,
       urgency: 'medium',
-      deadline: 'Inscrivez-vous !',
-      action: 'Voir créneaux',
+      action: 'View shifts',
       icon: 'Users',
       color: 'green',
       relatedData: { shiftIds: urgentShifts.map(s => s.id) }
     });
   }
 
-  // 📅 CRÉNEAUX BIENTÔT DISPONIBLES
+  // 📅 UPCOMING SHIFTS
   const upcomingShifts = shifts.filter(shift => {
     if (shift?.status !== 'live' || !shift.shift_date) return false;
     
@@ -196,12 +190,11 @@ const generateVolunteerNotifications = (
     service.addTask(role, {
       type: 'reminder',
       category: 'shift',
-      title: `${upcomingShifts.length} créneaux cette semaine`,
-      description: `Créneaux disponibles dans les 3 prochains jours`,
+      title: `${upcomingShifts.length} shifts this week`,
+      description: `Shifts available in the next 3 days`,
       count: upcomingShifts.length,
       urgency: 'low',
-      deadline: 'Cette semaine',
-      action: 'Voir planning',
+      action: 'View schedule',
       icon: 'Calendar',
       color: 'blue',
       relatedData: { shiftIds: upcomingShifts.map(s => s.id) }
@@ -209,13 +202,13 @@ const generateVolunteerNotifications = (
   }
 };
 
-// ✅ Notifications pour les directeurs d'équipe
+// ✅ Notifications for team directors
 const generateTeamDirectorNotifications = (
   service: NotificationService,
   role: UserRole,
   teams: any[]
 ) => {
-  // 💃 ÉQUIPES INCOMPLÈTES
+  // 💃 INCOMPLETE TEAMS
   const incompleteTeams = teams.filter(team => 
     team && 
     (team.status === 'draft' || team.status === 'submitted') && 
@@ -225,32 +218,30 @@ const generateTeamDirectorNotifications = (
   incompleteTeams.forEach(team => {
     service.addTask(role, {
       type: 'urgent',
-      category: 'submission',
-      title: 'Musique manquante',
-      description: `Votre équipe "${team.team_name || 'Sans nom'}" doit soumettre sa musique`,
+      category: 'team', // CORRECTION: 'submission' changé en 'team'
+      title: 'Missing music',
+      description: `Your team "${team.team_name || 'Unnamed'}" needs to submit their music`,
       count: 1,
       urgency: 'high',
-      deadline: 'Deadline proche',
-      action: 'Uploader',
+      action: 'Upload',
       icon: 'Music',
       color: 'red',
       relatedData: { teamId: team.id }
     });
   });
 
-  // 📝 ÉQUIPES EN BROUILLON
+  // 📝 DRAFT TEAMS
   const draftTeams = teams.filter(team => team?.status === 'draft');
   
   if (draftTeams.length > 0) {
     service.addTask(role, {
       type: 'reminder',
-      category: 'submission',
-      title: `${draftTeams.length} équipe(s) en brouillon`,
-      description: `Finalisez et soumettez vos équipes pour approbation`,
+      category: 'team', // CORRECTION: 'submission' changé en 'team'
+      title: `${draftTeams.length} draft team(s)`,
+      description: `Finalize and submit your teams for approval`,
       count: draftTeams.length,
       urgency: 'medium',
-      deadline: 'Avant la deadline',
-      action: 'Finaliser',
+      action: 'Finalize',
       icon: 'FileText',
       color: 'orange',
       relatedData: { teamIds: draftTeams.map(t => t.id) }

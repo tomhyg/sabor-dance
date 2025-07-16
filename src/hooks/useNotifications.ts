@@ -1,285 +1,173 @@
-// src/hooks/useNotifications.ts - CORRECTION FINALE BOUCLE INFINIE
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { notificationService, UrgentTask, UserRole } from '../services/notifications/notificationService';
+// src/hooks/useNotifications.ts - CLEAN REAL VERSION
+import { useState, useEffect } from 'react';
+import { NotificationService, UrgentTask, UserRole } from '../services/notifications/notificationService';
+import { EmailService } from '../services/emailService';
 
-interface UseNotificationsOptions {
-  eventId?: string;
-  currentUserId?: string;
-  autoRefresh?: boolean;
-  refreshInterval?: number;
-}
+export const useNotifications = (userRole: UserRole | undefined, userId: string | undefined) => {
+  const [notificationService] = useState(() => new NotificationService());
+  const [emailService] = useState(() => new EmailService());
+  const [urgentTasks, setUrgentTasks] = useState<UrgentTask[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-export const useNotifications = (
-  userRole: UserRole, 
-  options: UseNotificationsOptions = {}
-) => {
-  const {
-    eventId = 'a9d1c983-1456-4007-9aec-b297dd095ff7',
-    currentUserId,
-    autoRefresh = true,
-    refreshInterval = 30000
-  } = options;
-
-  const [tasks, setTasks] = useState<UrgentTask[]>([]);
-  const [urgentCount, setUrgentCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-
-  // ✅ Refs pour éviter les re-renders
-  const isInitialized = useRef(false);
-  const refreshTimeout = useRef<NodeJS.Timeout | null>(null);
-  const isUpdating = useRef(false); // Protection contre les updates multiples
-
-  // ✅ Fonction stable SANS dépendances qui changent
-  const updateData = useCallback(() => {
-    // ✅ Protection contre les appels multiples
-    if (isUpdating.current) {
-      console.log('⏭️ Update déjà en cours, ignoré');
+  // Load notifications at startup and periodically
+  useEffect(() => {
+    if (!userRole || !userId) {
+      setUrgentTasks([]);
       return;
     }
 
-    try {
-      isUpdating.current = true;
+    let isMounted = true;
+    
+    const loadNotifications = async () => {
+      setLoading(true);
+      setError(null);
       
-      const roleTasks = notificationService.getTasksForRole(userRole);
-      const urgent = notificationService.getUrgentCount(userRole);
-      const total = notificationService.getTotalCount(userRole);
-      
-      // ✅ Batch updates pour éviter les re-renders multiples
-      React.startTransition(() => {
-        setTasks(roleTasks);
-        setUrgentCount(urgent);
-        setTotalCount(total);
-        setLoading(false);
-        setLastRefresh(new Date());
-      });
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`📊 Notifications mises à jour pour ${userRole}:`, {
-          tasks: roleTasks.length,
-          urgent,
-          total
-        });
+      try {
+        await notificationService.generateRealNotifications(userRole, userId);
+        
+        if (isMounted) {
+          setUrgentTasks(notificationService.getTasks(userRole));
+        }
+      } catch (err) {
+        console.error('❌ Error loading notifications:', err);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error('Erreur mise à jour notifications:', error);
-      React.startTransition(() => {
-        setLoading(false);
-      });
-    } finally {
-      // ✅ Reset de la protection après un délai
-      setTimeout(() => {
-        isUpdating.current = false;
-      }, 100);
-    }
-  }, [userRole]); // ✅ SEULEMENT userRole comme dépendance
+    };
 
-  // ✅ Fonction de refresh backend séparée et protégée
-  const refreshFromBackend = useCallback(async () => {
-    if (loading || isUpdating.current) {
-      console.log('⏭️ Refresh déjà en cours, ignoré');
-      return;
-    }
-
-    try {
-      console.log(`🔄 Refresh backend pour ${userRole}`);
-      
-      const { generateRealNotifications } = await import('../services/notifications/realNotificationGenerator');
-      await generateRealNotifications(notificationService, userRole, eventId, currentUserId);
-      
-      console.log(`✅ Refresh backend terminé pour ${userRole}`);
-    } catch (error) {
-      console.error('❌ Erreur refresh backend:', error);
-    }
-  }, [userRole, eventId, currentUserId, loading]);
-
-  // ✅ Initialisation UNE SEULE FOIS
-  useEffect(() => {
-    if (isInitialized.current) return;
+    // Load immediately
+    loadNotifications();
     
-    console.log(`🚀 Initialisation UNIQUE pour ${userRole}`);
+    // Reload every 5 minutes
+    const interval = setInterval(loadNotifications, 5 * 60 * 1000);
     
-    // Initialisation immédiate des données
-    updateData();
-    
-    // Marquer comme initialisé AVANT le refresh pour éviter les doubles appels
-    isInitialized.current = true;
-    
-    // Refresh initial après un délai pour éviter les conflits
-    if (autoRefresh) {
-      setTimeout(() => {
-        refreshFromBackend();
-      }, 1000); // 1 seconde de délai
-    }
-  }, [userRole]); // ✅ SEULEMENT userRole
-
-  // ✅ Abonnement séparé et stable
-  useEffect(() => {
-    console.log(`🔗 Abonnement notifications pour ${userRole}`);
-    
+    // Subscribe to changes
     const unsubscribe = notificationService.subscribe(() => {
-      // ✅ Délai pour éviter les appels en cascade
-      setTimeout(updateData, 50);
+      if (isMounted) {
+        setUrgentTasks(notificationService.getTasks(userRole));
+      }
     });
     
     return () => {
-      console.log(`🔌 Désabonnement notifications pour ${userRole}`);
+      isMounted = false;
+      clearInterval(interval);
       unsubscribe();
     };
-  }, [userRole, updateData]);
+  }, [userRole, userId, notificationService]);
 
-  // ✅ Auto-refresh séparé et contrôlé
-  useEffect(() => {
-    if (!autoRefresh || !isInitialized.current) return;
-
-    console.log(`⏰ Démarrage auto-refresh pour ${userRole} (${refreshInterval}ms)`);
-
-    refreshTimeout.current = setInterval(() => {
-      console.log(`🔄 Auto-refresh déclenché pour ${userRole}`);
-      refreshFromBackend();
-    }, refreshInterval);
-
-    return () => {
-      if (refreshTimeout.current) {
-        console.log(`⏰ Arrêt auto-refresh pour ${userRole}`);
-        clearInterval(refreshTimeout.current);
-        refreshTimeout.current = null;
-      }
-    };
-  }, [autoRefresh, refreshInterval, userRole]); // ✅ PAS refreshFromBackend dans les deps
-
-  // ✅ Nettoyage final
-  useEffect(() => {
-    return () => {
-      if (refreshTimeout.current) {
-        clearInterval(refreshTimeout.current);
-      }
-      isInitialized.current = false;
-      isUpdating.current = false;
-    };
-  }, []);
-
-  // ✅ Actions stables
-  const addTask = useCallback((task: Omit<UrgentTask, 'id' | 'createdAt'>) => {
-    try {
-      notificationService.addTask(userRole, task);
-    } catch (error) {
-      console.error('Erreur ajout tâche:', error);
-    }
-  }, [userRole]);
-
-  const completeTask = useCallback((taskId: string) => {
-    try {
-      notificationService.markTaskCompleted(userRole, taskId);
-    } catch (error) {
-      console.error('Erreur complétion tâche:', error);
-    }
-  }, [userRole]);
-
-  const clearAllTasks = useCallback(() => {
-    try {
-      notificationService.clearAllTasks(userRole);
-    } catch (error) {
-      console.error('Erreur effacement tâches:', error);
-    }
-  }, [userRole]);
-
-  // ✅ Refresh manuel protégé
-  const refreshNotifications = useCallback(async () => {
-    console.log(`🔄 Refresh manuel demandé pour ${userRole}`);
-    await refreshFromBackend();
-  }, [userRole, eventId, currentUserId]); // ✅ Dépendances fixes
-
-  // 🔄 Génération depuis données (DEPRECATED)
-  const generateFromData = useCallback((volunteerShifts: any[], performanceTeams: any[]) => {
-    console.warn('⚠️ generateFromData est obsolète - utiliser le système de refresh automatique');
+  // Refresh manually
+  const refresh = async () => {
+    if (!userRole || !userId) return;
+    
+    setLoading(true);
+    setError(null);
     
     try {
-      if (!Array.isArray(volunteerShifts) || !Array.isArray(performanceTeams)) {
-        console.warn('Données invalides pour génération notifications');
-        return;
-      }
-
-      notificationService.generateNotificationsFromData(userRole, volunteerShifts, performanceTeams);
-    } catch (error) {
-      console.error('Erreur génération notifications:', error);
+      await notificationService.refresh(userRole, userId);
+      setUrgentTasks(notificationService.getTasks(userRole));
+    } catch (err) {
+      console.error('❌ Error refreshing:', err);
+      setError(err instanceof Error ? err.message : 'Refresh error');
+    } finally {
+      setLoading(false);
     }
-  }, [userRole]);
+  };
 
-  // 📊 Statistiques stables
-  const getTasksByCategory = useCallback(() => {
-    const categories: Record<string, UrgentTask[]> = {};
-    tasks.forEach(task => {
-      if (!categories[task.category]) {
-        categories[task.category] = [];
-      }
-      categories[task.category].push(task);
-    });
-    return categories;
-  }, [tasks]);
-
-  const getTasksByUrgency = useCallback(() => {
-    return {
-      high: tasks.filter(t => t.urgency === 'high'),
-      medium: tasks.filter(t => t.urgency === 'medium'),
-      low: tasks.filter(t => t.urgency === 'low')
-    };
-  }, [tasks]);
-
-  // 🔧 Debug amélioré
-  const debugNotifications = useCallback(() => {
-    console.group(`🔍 Debug notifications - ${userRole}`);
-    console.log('Configuration:', {
-      userRole,
-      eventId,
-      currentUserId,
-      autoRefresh,
-      refreshInterval
-    });
-    console.log('État actuel:', {
-      tasks: tasks.length,
-      urgent: urgentCount,
-      total: totalCount,
-      lastRefresh: lastRefresh?.toLocaleTimeString(),
-      loading,
-      isInitialized: isInitialized.current,
-      isUpdating: isUpdating.current
-    });
-    console.log('Détail des tâches:', tasks);
-    console.table(tasks.map(t => ({
-      title: t.title,
-      category: t.category,
-      urgency: t.urgency,
-      count: t.count
-    })));
-    console.groupEnd();
+  // Mark a task as handled
+  const dismissTask = (taskId: string) => {
+    if (!userRole) return;
     
-    notificationService.debugState();
-  }, [userRole, eventId, currentUserId, autoRefresh, refreshInterval, tasks, urgentCount, totalCount, lastRefresh, loading]);
+    notificationService.removeTask(userRole, taskId);
+    setUrgentTasks(notificationService.getTasks(userRole));
+  };
+
+  // Send a test email
+  const sendTestEmail = async (type: 'volunteer' | 'team_director' | 'organizer'): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const testEmail = 'test@example.com';
+      const result = await emailService.sendTestEmail(type, testEmail);
+      return result;
+    } catch (error) {
+      console.error('❌ Error sending test email:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  };
+
+  // Get statistics
+  const getStats = () => {
+    const stats = notificationService.getStats();
+    return userRole ? stats[userRole] : { total: 0, urgent: 0, critical: 0 };
+  };
+
+  // Get a specific task
+  const getTask = (taskId: string): UrgentTask | undefined => {
+    return userRole ? notificationService.getTask(userRole, taskId) : undefined;
+  };
+
+  // Test functions for development
+  const testNotifications = async () => {
+    if (!userRole || !userId) return [];
+    
+    try {
+      const testTasks = await notificationService.testNotifications(userRole, userId);
+      setUrgentTasks(testTasks);
+      return testTasks;
+    } catch (error) {
+      console.error('❌ Error testing notifications:', error);
+      return [];
+    }
+  };
+
+  // Clear all notifications
+  const clearAll = () => {
+    if (!userRole) return;
+    
+    notificationService.clearTasks(userRole);
+    setUrgentTasks([]);
+  };
 
   return {
-    // Données principales
-    tasks,
-    urgentCount,
-    totalCount,
+    // Main data
+    urgentTasks,
+    taskCount: urgentTasks.length,
+    urgentCount: urgentTasks.filter(t => t.urgency === 'high').length,
+    criticalCount: urgentTasks.filter(t => t.type === 'critical').length,
+    
+    // States
     loading,
-    lastRefresh,
+    error,
     
     // Actions
-    addTask,
-    completeTask,
-    clearAllTasks,
-    refreshNotifications,
+    refresh,
+    dismissTask,
+    getTask,
+    clearAll,
     
-    // Compatibilité
-    generateFromData,
+    // Statistics
+    getStats,
     
-    // Statistiques
-    getTasksByCategory,
-    getTasksByUrgency,
+    // Email functions
+    sendTestEmail,
     
-    // Debug
-    debugNotifications
+    // Test functions (development)
+    testNotifications,
+    
+    // Additional data
+    hasUrgentTasks: urgentTasks.some(t => t.urgency === 'high'),
+    hasCriticalTasks: urgentTasks.some(t => t.type === 'critical'),
+    
+    // Filters
+    getTasksByType: (type: UrgentTask['type']) => urgentTasks.filter(t => t.type === type),
+    getTasksByCategory: (category: UrgentTask['category']) => urgentTasks.filter(t => t.category === category),
+    getTasksByUrgency: (urgency: UrgentTask['urgency']) => urgentTasks.filter(t => t.urgency === urgency)
   };
 };

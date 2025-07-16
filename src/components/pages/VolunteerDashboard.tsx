@@ -43,9 +43,9 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
   onClose
 }) => {
   const [checkInFeedback, setCheckInFeedback] = useState<{type: 'success' | 'error', message: string} | null>(null);
-  const requiredHours = 8;
+  const requiredHours = 9;
 
-  // Récupérer MES créneaux
+  // Get MY shifts
   const mySignups = volunteerSignups.filter(signup => 
     signup.volunteer_id === currentUser?.id && 
     signup.status !== 'cancelled'
@@ -58,7 +58,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
     return { ...shift, signup };
   });
 
-  // Calculer mes heures
+  // Calculate my hours
   const completedHours = myShifts.reduce((total, shift) => {
     const start = new Date(`2000-01-01T${shift.start_time}`);
     const end = new Date(`2000-01-01T${shift.end_time}`);
@@ -68,14 +68,14 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
   const remainingHours = Math.max(0, requiredHours - completedHours);
   const progressPercentage = Math.min((completedHours / requiredHours) * 100, 100);
 
-  // Trier mes créneaux par date/heure
+  // Sort my shifts by date/time
   const sortedMyShifts = myShifts.sort((a, b) => {
     const dateA = new Date(`${a.shift_date}T${a.start_time}`);
     const dateB = new Date(`${b.shift_date}T${b.start_time}`);
     return dateA.getTime() - dateB.getTime();
   });
 
-  // Séparer passés et futurs
+  // Separate past and future shifts
   const now = new Date();
   const upcomingShifts = sortedMyShifts.filter(shift => {
     const shiftDate = new Date(`${shift.shift_date}T${shift.start_time}`);
@@ -87,7 +87,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
     return shiftDate <= now;
   });
 
-  // Prochain créneau
+  // Next shift
   const nextShift = upcomingShifts[0];
 
   // Check-in function
@@ -105,13 +105,13 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
 
     setCheckInFeedback({
       type: 'success', 
-      message: '✅ Vous êtes maintenant pointé(e) pour ce créneau !'
+      message: '✅ You are now checked in for this shift!'
     });
     
     setTimeout(() => setCheckInFeedback(null), 4000);
   };
 
-  // Se désinscrire
+  // Unsubscribe
   const handleUnsubscribe = (shiftId: string) => {
     const signup = mySignups.find(s => s.shift_id === shiftId);
     if (!signup) return;
@@ -136,19 +136,19 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
 
     setCheckInFeedback({
       type: 'success', 
-      message: '✅ Vous avez été désinscrit(e) de ce créneau'
+      message: '✅ You have been unsubscribed from this shift'
     });
     
     setTimeout(() => setCheckInFeedback(null), 4000);
   };
 
-  // Helper pour savoir si on peut se pointer
+  // Helper to know if we can check in
   const canCheckIn = (shift: any) => {
     const now = new Date();
     const shiftStart = new Date(`${shift.shift_date}T${shift.start_time}`);
     const shiftEnd = new Date(`${shift.shift_date}T${shift.end_time}`);
     
-    // Peut se pointer 30min avant jusqu'à la fin du créneau
+    // Can check in 30min before until end of shift
     const checkInWindow = new Date(shiftStart.getTime() - 30 * 60 * 1000);
     
     return now >= checkInWindow && now <= shiftEnd && shift.signup?.status !== 'checked_in';
@@ -172,7 +172,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
               <UserCheck className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">Mon Dashboard Bénévole</h1>
+              <h1 className="text-3xl font-bold text-white">My Volunteer Dashboard</h1>
               <p className="text-green-300 text-lg">{currentUser?.full_name}</p>
             </div>
           </div>
@@ -198,12 +198,12 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
             </div>
           )}
 
-          {/* Progression */}
+          {/* Progress */}
           <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-3xl p-8 mb-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                 <TrendingUp className="w-8 h-8 text-green-400" />
-                Ma Progression
+                My Progress
               </h2>
               <div className="text-right">
                 <div className="text-3xl font-black text-white">{completedHours.toFixed(1)}h</div>
@@ -222,7 +222,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
             
             <div className="flex justify-between items-center">
               <span className="text-gray-300">
-                {remainingHours > 0 ? `${remainingHours.toFixed(1)}h restantes` : 'Objectif atteint ! 🎉'}
+                {remainingHours > 0 ? `${remainingHours.toFixed(1)}h remaining` : 'Goal achieved! 🎉'}
               </span>
               <span className="text-green-400 font-bold">{Math.round(progressPercentage)}%</span>
             </div>
@@ -231,18 +231,18 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
               <div className="mt-4 p-4 bg-green-500/20 border border-green-400/30 rounded-xl">
                 <div className="flex items-center gap-3 text-green-300">
                   <Star className="w-6 h-6" />
-                  <span className="font-bold text-lg">Félicitations ! Vous avez terminé vos heures bénévoles ! 🎊</span>
+                  <span className="font-bold text-lg">Congratulations! You've completed your volunteer hours! 🎊</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Prochain créneau */}
+          {/* Next shift */}
           {nextShift && (
             <div className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-3xl p-6 mb-8">
               <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
                 <Clock className="w-6 h-6 text-blue-400" />
-                Prochain Créneau
+                Next Shift
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -252,7 +252,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                   <div className="space-y-2 text-gray-400">
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-blue-400" />
-                      <span>{new Date(nextShift.shift_date).toLocaleDateString('fr-FR', { 
+                      <span>{new Date(nextShift.shift_date).toLocaleDateString('en-US', { 
                         weekday: 'long', 
                         day: 'numeric', 
                         month: 'long' 
@@ -264,7 +264,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin size={16} className="text-blue-400" />
-                      <span>Lieu : Salle principale (infos détaillées par email)</span>
+                      <span>Location: Main Hall (detailed info via email)</span>
                     </div>
                   </div>
                 </div>
@@ -275,18 +275,18 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                       onClick={() => handleCheckIn(nextShift.id)}
                       className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-xl"
                     >
-                      ✋ Je suis arrivé(e) !
+                      ✋ I'm here!
                     </button>
                   ) : nextShift.signup?.status === 'checked_in' ? (
                     <div className="bg-green-500/20 text-green-300 px-8 py-4 rounded-2xl font-bold text-lg border border-green-500/30">
-                      ✅ Vous êtes pointé(e)
+                      ✅ You're checked in
                     </div>
                   ) : (
                     <div className="text-center">
                       <div className="bg-gray-600/30 text-gray-400 px-6 py-3 rounded-xl font-semibold border border-gray-500/30 mb-2">
-                        Check-in disponible 30min avant
+                        Check-in available 30min before
                       </div>
-                      <p className="text-gray-500 text-sm">Revenez plus tard pour pointer</p>
+                      <p className="text-gray-500 text-sm">Come back later to check in</p>
                     </div>
                   )}
                   
@@ -294,29 +294,29 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                     onClick={() => handleUnsubscribe(nextShift.id)}
                     className="bg-red-500/20 text-red-300 px-6 py-2 rounded-lg hover:bg-red-500/30 transition-colors border border-red-500/30"
                   >
-                    Se désinscrire
+                    Unsubscribe
                   </button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Mes créneaux */}
+          {/* My shifts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            {/* Créneaux à venir */}
+            {/* Upcoming shifts */}
             <div>
               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                 <Calendar className="w-7 h-7 text-orange-400" />
-                Créneaux à Venir ({upcomingShifts.length})
+                Upcoming Shifts ({upcomingShifts.length})
               </h3>
               
               <div className="space-y-4">
                 {upcomingShifts.length === 0 ? (
                   <div className="bg-gray-700/30 border border-gray-600/30 rounded-xl p-6 text-center">
                     <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-400">Aucun créneau à venir</p>
-                    <p className="text-gray-500 text-sm">Inscrivez-vous à d'autres créneaux !</p>
+                    <p className="text-gray-400">No upcoming shifts</p>
+                    <p className="text-gray-500 text-sm">Sign up for more shifts!</p>
                   </div>
                 ) : (
                   upcomingShifts.map(shift => (
@@ -328,7 +328,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                         </div>
                         {shift.signup?.status === 'checked_in' && (
                           <div className="bg-green-500/20 text-green-300 px-3 py-1 rounded-full text-xs font-bold">
-                            ✅ Pointé
+                            ✅ Checked in
                           </div>
                         )}
                       </div>
@@ -336,7 +336,7 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                       <div className="grid grid-cols-2 gap-4 text-sm text-gray-400 mb-4">
                         <div className="flex items-center gap-2">
                           <Calendar size={14} />
-                          <span>{new Date(shift.shift_date).toLocaleDateString('fr-FR')}</span>
+                          <span>{new Date(shift.shift_date).toLocaleDateString('en-US')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock size={14} />
@@ -350,14 +350,14 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                             onClick={() => handleCheckIn(shift.id)}
                             className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors font-semibold"
                           >
-                            Je suis arrivé(e)
+                            I'm here
                           </button>
                         )}
                         <button
                           onClick={() => handleUnsubscribe(shift.id)}
                           className="bg-red-500/20 text-red-300 px-4 py-2 rounded-lg hover:bg-red-500/30 transition-colors"
                         >
-                          Se désinscrire
+                          Unsubscribe
                         </button>
                       </div>
                     </div>
@@ -366,18 +366,18 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
               </div>
             </div>
 
-            {/* Créneaux passés */}
+            {/* Past shifts */}
             <div>
               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                 <CheckCircle className="w-7 h-7 text-green-400" />
-                Créneaux Terminés ({pastShifts.length})
+                Completed Shifts ({pastShifts.length})
               </h3>
               
               <div className="space-y-4">
                 {pastShifts.length === 0 ? (
                   <div className="bg-gray-700/30 border border-gray-600/30 rounded-xl p-6 text-center">
                     <CheckCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-400">Aucun créneau terminé</p>
+                    <p className="text-gray-400">No completed shifts</p>
                   </div>
                 ) : (
                   pastShifts.map(shift => (
@@ -392,14 +392,14 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
                             ? 'bg-green-500/20 text-green-300' 
                             : 'bg-red-500/20 text-red-300'
                         }`}>
-                          {shift.signup?.status === 'checked_in' ? '✅ Présent' : '❌ Absent'}
+                          {shift.signup?.status === 'checked_in' ? '✅ Present' : '❌ Absent'}
                         </div>
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4 text-sm text-gray-400">
                         <div className="flex items-center gap-2">
                           <Calendar size={14} />
-                          <span>{new Date(shift.shift_date).toLocaleDateString('fr-FR')}</span>
+                          <span>{new Date(shift.shift_date).toLocaleDateString('en-US')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock size={14} />
@@ -413,21 +413,21 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
             </div>
           </div>
 
-          {/* Actions rapides */}
+          {/* Quick actions */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-6 text-center">
               <QrCode className="w-12 h-12 text-purple-400 mx-auto mb-3" />
-              <h4 className="text-white font-semibold mb-2">Mon QR Code</h4>
-              <p className="text-gray-400 text-sm mb-4">Pour le check-in rapide</p>
-              <button className="bg-purple-500/20 text-purple-300 px-4 py-2 rounded-lg hover:bg-purple-500/30 transition-colors font-semibold">
-                Afficher QR
+              <h4 className="text-white font-semibold mb-2">My QR Code</h4>
+              <p className="text-gray-400 text-sm mb-4">For quick check-in</p>
+              <button className="bg-gray-500/20 text-gray-400 px-4 py-2 rounded-lg cursor-not-allowed font-semibold" disabled>
+                Coming Soon
               </button>
             </div>
             
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6 text-center">
               <Phone className="w-12 h-12 text-blue-400 mx-auto mb-3" />
-              <h4 className="text-white font-semibold mb-2">Contact Urgence</h4>
-              <p className="text-gray-400 text-sm mb-4">En cas de problème</p>
+              <h4 className="text-white font-semibold mb-2">Emergency Contact</h4>
+              <p className="text-gray-400 text-sm mb-4">In case of issues</p>
               <button className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-lg hover:bg-blue-500/30 transition-colors font-semibold">
                 +1 (617) 555-0123
               </button>
@@ -435,10 +435,10 @@ const VolunteerDashboard: React.FC<VolunteerDashboardProps> = ({
             
             <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-6 text-center">
               <MessageSquare className="w-12 h-12 text-orange-400 mx-auto mb-3" />
-              <h4 className="text-white font-semibold mb-2">Groupe WhatsApp</h4>
-              <p className="text-gray-400 text-sm mb-4">Chat bénévoles BSF</p>
-              <button className="bg-orange-500/20 text-orange-300 px-4 py-2 rounded-lg hover:bg-orange-500/30 transition-colors font-semibold">
-                Rejoindre
+              <h4 className="text-white font-semibold mb-2">WhatsApp Group</h4>
+              <p className="text-gray-400 text-sm mb-4">BSF volunteers chat</p>
+              <button className="bg-gray-500/20 text-gray-400 px-4 py-2 rounded-lg cursor-not-allowed font-semibold" disabled>
+                Coming Soon
               </button>
             </div>
           </div>

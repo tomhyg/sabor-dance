@@ -1,4 +1,4 @@
-// src/components/SaborDanceApp.tsx - Version corrigée sans données de démo
+// src/components/SaborDanceApp.tsx - Version corrigée avec notifications réelles
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Music, LogIn, LogOut, User, Plus, Clock, X, CheckCircle, Eye, EyeOff, Star, MessageSquare, Copy, Bell, Play, Instagram, ExternalLink, Heart, UserCheck, ArrowRight, BarChart3 } from 'lucide-react';
 
@@ -22,11 +22,12 @@ import { AuthRouter } from './AuthRouter';
 // Import des types
 import { PerformanceTeam } from '../types/PerformanceTeam';
 
-// ===== IMPORT DU SYSTÈME DE NOTIFICATIONS MODULAIRE =====
+// ===== IMPORT DU NOUVEAU SYSTÈME DE NOTIFICATIONS =====
+import { autoInitNotifications } from '../services/initNotifications';
 import { UrgentTasksBadge } from './notifications/UrgentTasksBadge';
 import { UrgentTasksModal } from './notifications/UrgentTasksModal';
 import { useNotifications } from '../hooks/useNotifications';
-import { UserRole } from '../services/notifications/notificationService';
+import { UserRole, UrgentTask } from '../services/notifications/notificationService';
 
 // 🎯 CORRECTION: Types unifiés avec statuts compatibles
 interface User {
@@ -184,13 +185,17 @@ const SaborDanceApp = () => {
   // Conversion utilisateur
   const currentUser: User | null = supabaseUser ? convertSupabaseUserToLocal(supabaseUser as any) : null;
 
-  // ===== HOOK NOTIFICATIONS =====
-  const {
-    tasks,
-    urgentCount,
-    totalCount,
-    generateFromData
-  } = useNotifications(currentUser?.role as UserRole || 'volunteer');
+  // ===== NOUVEAU SYSTÈME DE NOTIFICATIONS =====
+  const { 
+    urgentTasks, 
+    taskCount, 
+    urgentCount, 
+    criticalCount, 
+    loading: notificationsLoading, 
+    refresh: refreshNotifications,
+    dismissTask,
+    sendTestEmail 
+  } = useNotifications(currentUser?.role as UserRole, currentUser?.id);
 
   // États de l'application
   const [currentView, setCurrentView] = useState('home');
@@ -210,20 +215,25 @@ const SaborDanceApp = () => {
   // Système de traduction
   const { t } = useTranslation(currentLanguage);
 
+  // ===== INITIALISATION DU SYSTÈME DE NOTIFICATIONS =====
+  useEffect(() => {
+    console.log('🚀 Initialisation du système de notifications...');
+    
+    // Initialiser le système de notifications
+    const notificationSystem = autoInitNotifications();
+    
+    return () => {
+      console.log('🧹 Nettoyage du système de notifications');
+      notificationSystem.cleanup();
+    };
+  }, []);
+
   // Charger les données initiales
   useEffect(() => {
     if (currentUser && !dataLoading) {
       loadInitialData();
     }
   }, [currentUser?.id]);
-
-  // ===== GÉNÉRATION AUTOMATIQUE DE NOTIFICATIONS =====
-  useEffect(() => {
-    if (currentUser && (volunteerShifts.length > 0 || performanceTeams.length > 0)) {
-      console.log('🔔 Génération notifications pour:', currentUser.role);
-      generateFromData(volunteerShifts, performanceTeams);
-    }
-  }, [currentUser, volunteerShifts, performanceTeams, generateFromData]);
 
   const loadInitialData = async () => {
     setDataLoading(true);
@@ -331,22 +341,22 @@ const SaborDanceApp = () => {
   };
 
   // ===== GESTIONNAIRE D'ACTIONS NOTIFICATIONS =====
-  const handleNotificationAction = (task: any) => {
+  const handleNotificationAction = (task: UrgentTask) => {
     console.log(`🎯 Action notification: ${task.title}`);
     
     // Redirection intelligente selon le type de tâche
     if (task.category === 'volunteer' && task.relatedData?.shiftIds) {
       setCurrentView('volunteers');
-      // TODO: Implémenter le filtrage/highlight des créneaux spécifiques
     } else if (task.category === 'team' && task.relatedData?.teamIds) {
       setCurrentView('teams');
-      // TODO: Implémenter le filtrage/highlight des équipes spécifiques
     } else if (task.category === 'approval') {
       setCurrentView('teams');
-      // TODO: Appliquer automatiquement le filtre "submitted"
     } else if (task.category === 'shift') {
       setCurrentView('volunteers');
     }
+    
+    // Fermer la modal
+    setShowNotifications(false);
   };
 
   // Fonction pour vérifier les permissions
@@ -485,10 +495,13 @@ const SaborDanceApp = () => {
           <div className="flex items-center space-x-4">
             <LanguageSelector />
 
-            {/* BADGE NOTIFICATIONS */}
+            {/* NOUVEAU BADGE NOTIFICATIONS */}
             {currentUser && (
               <UrgentTasksBadge 
-                userRole={currentUser.role as UserRole}
+                taskCount={taskCount}
+                urgentCount={urgentCount}
+                criticalCount={criticalCount}
+                loading={notificationsLoading}
                 onClick={() => setShowNotifications(true)}
               />
             )}
@@ -725,12 +738,17 @@ const SaborDanceApp = () => {
           t={t}
         />
 
-        {/* MODAL NOTIFICATIONS */}
+        {/* NOUVELLE MODAL NOTIFICATIONS */}
         {showNotifications && currentUser && (
-          <UrgentTasksModal 
+          <UrgentTasksModal
             userRole={currentUser.role as UserRole}
+            urgentTasks={urgentTasks}
+            loading={notificationsLoading}
             onClose={() => setShowNotifications(false)}
             onTaskAction={handleNotificationAction}
+            onDismissTask={dismissTask}
+            onRefresh={refreshNotifications}
+            onTestEmail={sendTestEmail}
           />
         )}
       </div>

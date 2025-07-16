@@ -8,8 +8,10 @@ interface VolunteersPageProps {
   setVolunteerSignups: React.Dispatch<React.SetStateAction<VolunteerSignup[]>>;
   events: DanceEvent[];
   setEvents: React.Dispatch<React.SetStateAction<DanceEvent[]>>;
-}import React, { useState, useEffect } from 'react';
-import { Users, Copy, Plus, CheckCircle, Calendar, Clock, X, QrCode, Scan, Check, AlertCircle, UserCheck, Bell, BellRing, List, Grid, Download, BarChart3, Edit, FileSpreadsheet, FileText, File, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+}
+
+import React, { useState, useEffect } from 'react';
+import { Users, Copy, Plus, CheckCircle, Calendar, Clock, X, Scan, Check, AlertCircle, UserCheck, List, Grid, Download, BarChart3, Edit, FileSpreadsheet, FileText, File, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 import CalendarView from './CalendarView';
 import GridView from './GridView';
 import VolunteerDashboard from './VolunteerDashboard';
@@ -17,6 +19,7 @@ import ShiftDetailsModal from '../volunteers/ShiftDetailsModal';
 import VolunteerAccountsModal from '../volunteers/VolunteerAccountsModal';
 import { exportVolunteerShifts, exportVolunteerSignups, quickExport, ExportFormat } from '../../utils/exportUtils';
 import { volunteerService, ShiftWithVolunteers } from '../../services/volunteerService';
+import volunteerScheduleService from '../../services/volunteerScheduleService';
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -97,14 +100,9 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
   setEvents
 }) => {
   const [showCreateShift, setShowCreateShift] = useState(false);
-  const [showQRScanner, setShowQRScanner] = useState(false);
-  const [showMyQR, setShowMyQR] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [scanResult, setScanResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [qrInput, setQrInput] = useState('');
   const [userVolunteerHours, setUserVolunteerHours] = useState(0);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // 🎯 NOUVEAU: État pour la modal de gestion des comptes bénévoles
   const [showVolunteerAccountsModal, setShowVolunteerAccountsModal] = useState(false);
@@ -168,8 +166,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       myProgress: 'Mon Progression Bénévolat',
       hoursCompleted: 'Heures complétées',
       congratulations: 'Félicitations ! Vos heures bénévoles sont complétées !',
-      notifications: 'Notifications',
-      myQRCode: 'Mon QR Code',
       listView: 'Vue Liste',
       calendarView: 'Vue Calendrier',
       gridView: 'Vue Grille',
@@ -178,17 +174,16 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       urgentFirst: '🚨 Urgents d\'abord',
       draft: 'BROUILLON',
       published: 'PUBLIÉ',
-      unpublished: 'DÉPUBLIÉ', // 🎯 NOUVEAU: selon feedback
+      unpublished: 'DÉPUBLIÉ',
       full: 'COMPLET',
       cancelled: 'ANNULÉ',
-      // 🎯 NOUVEAU: Statuts simplifiés selon feedback
       available: 'Disponible',
       signedUp: 'Inscrit',
       timeConflict: 'Conflit horaire',
       checkInRequired: 'Check-in requis',
       present: 'présents',
       publish: 'Publier',
-      unpublish: 'Dépublier', // 🎯 NOUVEAU: selon feedback
+      unpublish: 'Dépublier',
       signUp: 'S\'inscrire',
       unsubscribe: 'Se désinscrire',
       progress: 'Progression',
@@ -209,10 +204,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       pasteQRHere: 'Collez le code QR ici',
       validateScan: 'Valider Scan',
       testQRCodes: 'Codes QR de test:',
-      notificationCenter: 'Centre de Notifications',
-      unread: 'non lues',
-      markAllRead: 'Tout marquer lu',
-      noNotifications: 'Aucune notification pour le moment',
       usefulShortcuts: 'Raccourcis utiles',
       planning: 'Planning',
       modifyShift: 'Modifier le Créneau',
@@ -221,9 +212,8 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       status: 'Statut:',
       cancel: 'Annuler',
       saveChanges: 'Sauvegarder les Modifications',
-      export: 'Export', // 🎯 NOUVEAU
-      manageAccounts: 'Gestion Comptes', // 🎯 NOUVEAU
-      // 🎯 NOUVEAU: Messages de conflit d'horaires
+      export: 'Export',
+      manageAccounts: 'Gestion Comptes',
       overlapDetected: 'Conflit d\'horaires détecté !',
       overlapWarning: 'Ce créneau chevauche avec vos inscriptions existantes :',
       overlapDetails: 'Détails du conflit :',
@@ -234,23 +224,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       overlapPartial: 'Chevauchement partiel',
       continueAnyway: 'Continuer quand même',
       cancelSignup: 'Annuler l\'inscription',
-      // 🎯 NOUVEAU: Limite d'heures
       hourLimitWarning: 'Limite d\'heures dépassée',
       hourLimitMessage: 'Vous avez déjà {current}h d\'inscriptions. Ce créneau ajoute {additional}h (Total: {total}h, limite: {limit}h).',
-      // Affectations
       assignedVolunteers: 'bénévoles assignés',
       viewDetails: 'Voir détails',
       noVolunteersAssigned: 'Aucun bénévole assigné',
       urgentNeedsVolunteers: 'Besoin urgent de bénévoles',
       manageAssignments: 'Gérer les affectations',
-      // Rôles personnalisables
       roleRegistration: 'Accueil',
       roleTechSupport: 'Support technique',
       roleSecurity: 'Sécurité',
       roleArtistPickup: 'Transport artistes',
       roleMerchandise: 'Merchandising',
       roleGeneral: 'Général',
-      // Messages
       fillAllFields: 'Veuillez remplir tous les champs obligatoires',
       shiftCreatedSuccess: '✅ Créneau créé avec succès !',
       signupSuccess: '✅ Inscription réussie !',
@@ -263,7 +249,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       checkedInSuccess: 'Bénévole pointé avec succès !',
       enterQRCode: 'Veuillez saisir un code QR',
       mustBeLoggedIn: 'Vous devez être connecté pour vous inscrire',
-      error: 'Erreur' // 🎯 AJOUT: propriété manquante
+      error: 'Erreur'
     },
     en: {
       pageTitle: 'Volunteer Management',
@@ -274,8 +260,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       myProgress: 'My Volunteer Progress',
       hoursCompleted: 'Hours completed',
       congratulations: 'Congratulations! Your volunteer hours are completed!',
-      notifications: 'Notifications',
-      myQRCode: 'My QR Code',
       listView: 'List View',
       calendarView: 'Calendar View',
       gridView: 'Grid View',
@@ -284,17 +268,16 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       urgentFirst: '🚨 Urgent first',
       draft: 'DRAFT',
       published: 'PUBLISHED',
-      unpublished: 'UNPUBLISHED', // 🎯 NOUVEAU
+      unpublished: 'UNPUBLISHED',
       full: 'FULL',
       cancelled: 'CANCELLED',
-      // 🎯 NOUVEAU: Statuts simplifiés
       available: 'Available',
       signedUp: 'Signed Up',
       timeConflict: 'Time Conflict',
       checkInRequired: 'Check-in required',
       present: 'present',
       publish: 'Publish',
-      unpublish: 'Unpublish', // 🎯 NOUVEAU
+      unpublish: 'Unpublish',
       signUp: 'Sign Up',
       unsubscribe: 'Unsubscribe',
       progress: 'Progress',
@@ -315,10 +298,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       pasteQRHere: 'Paste QR code here',
       validateScan: 'Validate Scan',
       testQRCodes: 'Test QR codes:',
-      notificationCenter: 'Notification Center',
-      unread: 'unread',
-      markAllRead: 'Mark all read',
-      noNotifications: 'No notifications at the moment',
       usefulShortcuts: 'Useful shortcuts',
       planning: 'Schedule',
       modifyShift: 'Modify Shift',
@@ -327,9 +306,8 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       status: 'Status:',
       cancel: 'Cancel',
       saveChanges: 'Save Changes',
-      export: 'Export', // 🎯 NOUVEAU
-      manageAccounts: 'Manage Accounts', // 🎯 NOUVEAU
-      // 🎯 NOUVEAU: Messages de conflit d'horaires
+      export: 'Export',
+      manageAccounts: 'Manage Accounts',
       overlapDetected: 'Schedule conflict detected!',
       overlapWarning: 'This shift overlaps with your existing signups:',
       overlapDetails: 'Conflict details:',
@@ -340,23 +318,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       overlapPartial: 'Partial overlap',
       continueAnyway: 'Continue anyway',
       cancelSignup: 'Cancel signup',
-      // 🎯 NOUVEAU: Limite d'heures
       hourLimitWarning: 'Hour limit exceeded',
       hourLimitMessage: 'You already have {current}h of signups. This shift adds {additional}h (Total: {total}h, limit: {limit}h).',
-      // Affectations
       assignedVolunteers: 'volunteers assigned',
       viewDetails: 'View details',
       noVolunteersAssigned: 'No volunteers assigned',
       urgentNeedsVolunteers: 'Urgent need for volunteers',
       manageAssignments: 'Manage assignments',
-      // Rôles
       roleRegistration: 'Registration',
       roleTechSupport: 'Tech Support',
       roleSecurity: 'Security',
       roleArtistPickup: 'Artist Pickup',
       roleMerchandise: 'Merchandise',
       roleGeneral: 'General',
-      // Messages
       fillAllFields: 'Please fill all required fields',
       shiftCreatedSuccess: '✅ Shift created successfully!',
       signupSuccess: '✅ Signup successful!',
@@ -369,7 +343,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       checkedInSuccess: 'Volunteer checked in successfully!',
       enterQRCode: 'Please enter a QR code',
       mustBeLoggedIn: 'You must be logged in to sign up',
-      error: 'Error' // 🎯 AJOUT: propriété manquante
+      error: 'Error'
     },
     es: {
       pageTitle: 'Gestión de Voluntarios',
@@ -380,8 +354,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       myProgress: 'Mi Progreso Voluntario',
       hoursCompleted: 'Horas completadas',
       congratulations: '¡Felicitaciones! ¡Tus horas de voluntariado están completadas!',
-      notifications: 'Notificaciones',
-      myQRCode: 'Mi Código QR',
       listView: 'Vista Lista',
       calendarView: 'Vista Calendario',
       gridView: 'Vista Grilla',
@@ -390,17 +362,16 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       urgentFirst: '🚨 Urgentes primero',
       draft: 'BORRADOR',
       published: 'PUBLICADO',
-      unpublished: 'DESPUBLICADO', // 🎯 NOUVEAU
+      unpublished: 'DESPUBLICADO',
       full: 'COMPLETO',
       cancelled: 'CANCELADO',
-      // 🎯 NOUVEAU: Statuts simplifiés
       available: 'Disponible',
       signedUp: 'Inscrito',
       timeConflict: 'Conflicto Horario',
       checkInRequired: 'Check-in requerido',
       present: 'presentes',
       publish: 'Publicar',
-      unpublish: 'Despublicar', // 🎯 NOUVEAU
+      unpublish: 'Despublicar',
       signUp: 'Inscribirse',
       unsubscribe: 'Desuscribirse',
       progress: 'Progreso',
@@ -421,10 +392,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       pasteQRHere: 'Pega el código QR aquí',
       validateScan: 'Validar Escaneo',
       testQRCodes: 'Códigos QR de prueba:',
-      notificationCenter: 'Centro de Notificaciones',
-      unread: 'sin leer',
-      markAllRead: 'Marcar todo leído',
-      noNotifications: 'No hay notificaciones por el momento',
       usefulShortcuts: 'Accesos directos útiles',
       planning: 'Planificación',
       modifyShift: 'Modificar Turno',
@@ -433,9 +400,8 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       status: 'Estado:',
       cancel: 'Cancelar',
       saveChanges: 'Guardar Cambios',
-      export: 'Export', // 🎯 NOUVEAU
-      manageAccounts: 'Gestionar Cuentas', // 🎯 NOUVEAU
-      // 🎯 NOUVEAU: Messages de conflit d'horaires
+      export: 'Export',
+      manageAccounts: 'Gestionar Cuentas',
       overlapDetected: '¡Conflicto de horarios detectado!',
       overlapWarning: 'Este turno se superpone con tus inscripciones existentes:',
       overlapDetails: 'Detalles del conflicto:',
@@ -446,23 +412,19 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       overlapPartial: 'Superposición parcial',
       continueAnyway: 'Continuar de todos modos',
       cancelSignup: 'Cancelar inscripción',
-      // 🎯 NOUVEAU: Limite d'heures
       hourLimitWarning: 'Límite de horas excedido',
       hourLimitMessage: 'Ya tienes {current}h de inscripciones. Este turno añade {additional}h (Total: {total}h, límite: {limit}h).',
-      // Affectations
       assignedVolunteers: 'voluntarios asignados',
       viewDetails: 'Ver detalles',
       noVolunteersAssigned: 'Ningún voluntario asignado',
       urgentNeedsVolunteers: 'Necesidad urgente de voluntarios',
       manageAssignments: 'Gestionar asignaciones',
-      // Rôles
       roleRegistration: 'Registro',
       roleTechSupport: 'Soporte Técnico',
       roleSecurity: 'Seguridad',
       roleArtistPickup: 'Transporte de Artistas',
       roleMerchandise: 'Merchandising',
       roleGeneral: 'General',
-      // Messages
       fillAllFields: 'Por favor complete todos los campos requeridos',
       shiftCreatedSuccess: '✅ ¡Turno creado exitosamente!',
       signupSuccess: '✅ ¡Inscripción exitosa!',
@@ -475,7 +437,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       checkedInSuccess: '¡Voluntario registrado exitosamente!',
       enterQRCode: 'Por favor ingrese un código QR',
       mustBeLoggedIn: 'Debe estar conectado para inscribirse',
-      error: 'Error' // 🎯 AJOUT: propriété manquante
+      error: 'Error'
     }
   };
 
@@ -632,7 +594,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       await proceedWithSignup(shiftId);
     } catch (error) {
       console.error('Erreur lors de l\'inscription:', error);
-      alert('Erreur lors de l\'inscription'); // 🎯 CORRECTION: texte fixe au lieu de txt.error
+      alert('Erreur lors de l\'inscription');
     }
   };
 
@@ -679,9 +641,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       );
 
       alert(txt.signupSuccess);
-
-      // Recharger les données pour être sûr d'avoir les dernières infos
-      // Vous pouvez ajouter une fonction de rechargement ici si nécessaire
 
     } catch (error) {
       console.error('❌ Erreur lors de l\'inscription:', error);
@@ -730,6 +689,29 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     }
   };
 
+  const handleExportSchedule = async (format: 'csv' | 'xlsx' | 'pdf' = 'csv') => {
+    try {
+      console.log(`📅 Exporting schedule in ${format} format...`);
+      
+      const result = await volunteerScheduleService.exportVolunteerSchedule(
+        'a9d1c983-1456-4007-9aec-b297dd095ff7', // Event ID
+        format
+      );
+      
+      if (result.success) {
+        console.log(`✅ ${result.message}`);
+        // Optional: show success notification
+        alert(`✅ ${result.message}`);
+      } else {
+        console.error(`❌ Export error: ${result.message}`);
+        alert(`❌ Error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('❌ Schedule export error:', error);
+      alert('❌ Error exporting schedule');
+    }
+  };
+
   // Handler pour export Excel avec langue
   const handleExportVolunteers = (format: 'xlsx' | 'csv' | 'pdf' = 'xlsx') => {
     try {
@@ -766,158 +748,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     role_type: '',
     check_in_required: false
   });
-
-  // Générer notifications automatiques
-  useEffect(() => {
-    if (currentUser?.role === 'volunteer') {
-      const generateNotifications = () => {
-        const now = new Date();
-        const currentHour = now.getHours();
-
-        const mySignups = volunteerSignups.filter(signup =>
-          signup.volunteer_id === currentUser.id &&
-          (signup.status === 'signed_up' || signup.status === 'confirmed')
-        );
-
-        const upcomingNotifications: any[] = [];
-
-        mySignups.forEach(signup => {
-          const shift = volunteerShifts.find(s => s.id === signup.shift_id);
-          if (shift) {
-            const shiftHour = parseInt(shift.start_time.split(':')[0]);
-
-            if (currentHour === shiftHour - 1) {
-              upcomingNotifications.push({
-                id: `reminder-${shift.id}`,
-                type: 'reminder',
-                title: language === 'fr' ? '⏰ Rappel : Créneau dans 1h' :
-                  language === 'es' ? '⏰ Recordatorio: Turno en 1h' :
-                    '⏰ Reminder: Shift in 1h',
-                message: language === 'fr' ? `${shift.title} commence à ${shift.start_time}` :
-                  language === 'es' ? `${shift.title} comienza a las ${shift.start_time}` :
-                    `${shift.title} starts at ${shift.start_time}`,
-                time: new Date().toLocaleTimeString(),
-                shift: shift,
-                read: false
-              });
-            }
-
-            if (currentHour === shiftHour && new Date().getMinutes() >= 30) {
-              upcomingNotifications.push({
-                id: `urgent-${shift.id}`,
-                type: 'urgent',
-                title: language === 'fr' ? '🚨 Urgent : Créneau dans 30min' :
-                  language === 'es' ? '🚨 Urgente: Turno en 30min' :
-                    '🚨 Urgent: Shift in 30min',
-                message: language === 'fr' ? `N'oubliez pas votre QR Code pour ${shift.title}` :
-                  language === 'es' ? `No olvides tu código QR para ${shift.title}` :
-                    `Don't forget your QR Code for ${shift.title}`,
-                time: new Date().toLocaleTimeString(),
-                shift: shift,
-                read: false
-              });
-            }
-          }
-        });
-
-        const welcomeMessage = language === 'fr' ? '🎭 Bienvenue au Boston Salsa Festival !' :
-          language === 'es' ? '🎭 ¡Bienvenido al Boston Salsa Festival!' :
-            '🎭 Welcome to Boston Salsa Festival!';
-        const welcomeDescription = language === 'fr' ? 'Merci d\'être bénévole. Consultez vos créneaux ci-dessous.' :
-          language === 'es' ? 'Gracias por ser voluntario. Consulta tus turnos abajo.' :
-            'Thank you for volunteering. Check your shifts below.';
-
-        upcomingNotifications.push({
-          id: 'welcome',
-          type: 'info',
-          title: welcomeMessage,
-          message: welcomeDescription,
-          time: '08:00',
-          read: false
-        });
-
-        if (userVolunteerHours >= requiredHours) {
-          const completedMessage = language === 'fr' ? '✅ Heures bénévoles complétées !' :
-            language === 'es' ? '✅ ¡Horas de voluntariado completadas!' :
-              '✅ Volunteer hours completed!';
-          const completedDescription = language === 'fr' ? 'Félicitations ! Vous avez terminé vos 9h requises.' :
-            language === 'es' ? '¡Felicitaciones! Has completado tus 9h requeridas.' :
-              'Congratulations! You have completed your required 9h.';
-
-          upcomingNotifications.push({
-            id: 'completed',
-            type: 'success',
-            title: completedMessage,
-            message: completedDescription,
-            time: new Date().toLocaleTimeString(),
-            read: false
-          });
-        }
-
-        setNotifications(upcomingNotifications);
-        setUnreadCount(upcomingNotifications.filter(n => !n.read).length);
-      };
-
-      generateNotifications();
-    }
-  }, [currentUser, volunteerSignups, volunteerShifts, userVolunteerHours, language]);
-
-  const markNotificationRead = (notificationId: string) => {
-    setNotifications(notifications.map(n =>
-      n.id === notificationId ? { ...n, read: true } : n
-    ));
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  };
-
-  const markAllRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
-    setUnreadCount(0);
-  };
-
-  const generateQRCode = (userId: string) => {
-    return `SABOR_VOL_${userId}_${Date.now()}`;
-  };
-
-  const handleQRScan = () => {
-    if (!qrInput.trim()) {
-      setScanResult({ type: 'error', message: txt.enterQRCode });
-      return;
-    }
-
-    const qrMatch = qrInput.match(/SABOR_VOL_([^_]+)_/);
-    if (!qrMatch) {
-      setScanResult({ type: 'error', message: txt.qrInvalid });
-      return;
-    }
-
-    const scannedUserId = qrMatch[1];
-
-    const volunteerSignup = volunteerSignups.find(signup =>
-      signup.volunteer_id === scannedUserId &&
-      signup.status !== 'cancelled'
-    );
-
-    if (!volunteerSignup) {
-      setScanResult({ type: 'error', message: txt.volunteerNotFound });
-      return;
-    }
-
-    if (volunteerSignup.status === 'checked_in') {
-      setScanResult({ type: 'error', message: txt.alreadyCheckedIn });
-      return;
-    }
-
-    setVolunteerSignups(signups =>
-      signups.map(signup =>
-        signup.id === volunteerSignup.id
-          ? { ...signup, status: 'checked_in' as const, checked_in_at: new Date().toISOString() }
-          : signup
-      )
-    );
-
-    setScanResult({ type: 'success', message: txt.checkedInSuccess });
-    setQrInput('');
-  };
 
   const copyQRCode = (qrCode: string) => {
     navigator.clipboard.writeText(qrCode);
@@ -1179,6 +1009,8 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
     });
   };
 
+  const progressPercentage = Math.min((userVolunteerHours / requiredHours) * 100, 100);
+
   const isOrganizer = currentUser?.role === 'organizer' || currentUser?.role === 'admin';
   const isVolunteer = currentUser?.role === 'volunteer';
 
@@ -1225,13 +1057,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                     {isCreating ? txt.creating : txt.createSlot}
                   </button>
                   <button
-                    onClick={() => setShowQRScanner(true)}
-                    className="group bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-2"
-                  >
-                    <Scan size={18} />
-                    {txt.scanQR}
-                  </button>
-                  <button
                     onClick={() => setShowVolunteerAccountsModal(true)}
                     className="group bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 flex items-center gap-2"
                   >
@@ -1240,21 +1065,21 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                   </button>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleExportVolunteers('xlsx')}
+                      onClick={() => handleExportSchedule('xlsx')}
                       className="bg-green-500/20 text-green-300 px-4 py-2 rounded-lg hover:bg-green-500/30 transition-colors text-sm flex items-center gap-2 font-semibold"
                     >
                       <FileSpreadsheet size={16} />
                       XLSX
                     </button>
                     <button
-                      onClick={() => handleExportVolunteers('csv')}
+                      onClick={() => handleExportSchedule('csv')}
                       className="bg-blue-500/20 text-blue-300 px-4 py-2 rounded-lg hover:bg-blue-500/30 transition-colors text-sm flex items-center gap-2 font-semibold"
                     >
                       <FileText size={16} />
                       CSV
                     </button>
                     <button
-                      onClick={() => handleExportVolunteers('pdf')}
+                      onClick={() => handleExportSchedule('pdf')}
                       className="bg-red-500/20 text-red-300 px-4 py-2 rounded-lg hover:bg-red-500/30 transition-colors text-sm flex items-center gap-2 font-semibold"
                     >
                       <FileText size={16} />
@@ -1269,7 +1094,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        {/* Progression des heures bénévoles */}
+        {/* Progression des heures bénévoles - SANS BOUTONS QR CODE ET NOTIFICATIONS */}
         {isVolunteer && (
           <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 backdrop-blur-md border border-green-500/20 rounded-3xl p-8 mb-8">
             <div className="flex justify-between items-start mb-6">
@@ -1297,39 +1122,13 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Actions bénévole */}
-              <div className="ml-8 flex flex-col gap-3">
-                <div className="relative">
-                  <button
-                    onClick={() => setShowNotifications(true)}
-                    className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-6 py-3 rounded-xl font-bold hover:from-orange-600 hover:to-red-700 transition-all duration-300 flex items-center gap-2 relative"
-                  >
-                    <Bell size={20} />
-                    {txt.notifications}
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShowMyQR(true)}
-                  className="bg-gradient-to-r from-purple-500 to-violet-600 text-white px-6 py-3 rounded-xl font-bold hover:from-purple-600 hover:to-violet-700 transition-all duration-300 flex items-center gap-2"
-                >
-                  <QrCode size={20} />
-                  {txt.myQRCode}
-                </button>
-              </div>
+              {/* SUPPRESSION COMPLÈTE DES BOUTONS QR CODE ET NOTIFICATIONS */}
             </div>
           </div>
         )}
 
-        {/* 🎯 NETTOYAGE: Interface simplifiée pour bénévoles - Calendrier + Liste */}
+        {/* Interface simplifiée pour bénévoles - Calendrier + Liste */}
         {isVolunteer ? (
-          // Vue simplifiée pour bénévoles - calendrier et liste seulement
           <div className="flex justify-center mb-8">
             <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-2xl p-2">
               <div className="flex">
@@ -1396,7 +1195,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           </div>
         )}
 
-        {/* 🎯 NETTOYAGE: Filtres de tri - seulement pour organisateurs */}
+        {/* Filtres de tri - seulement pour organisateurs */}
         {isOrganizer && viewMode === 'list' && (
           <div className="flex justify-center mb-6">
             <div className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-md border border-gray-600/30 rounded-xl p-2">
@@ -1445,7 +1244,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             setVolunteerSignups={setVolunteerSignups}
             onSignUp={signUpForShift}
             onCreateShift={(shift) => {
-              const newShift: any = { // 🎯 CORRECTION: Type any temporaire
+              const newShift: any = {
                 id: Date.now().toString(),
                 current_volunteers: 0,
                 status: 'live',
@@ -1466,11 +1265,11 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
               }
             }}
             userVolunteerHours={userVolunteerHours}
-            setUserVolunteerHours={setUserVolunteerHours} // 🎯 CORRECTION: Ajout de la prop manquante
+            setUserVolunteerHours={setUserVolunteerHours}
           />
         ) : viewMode === 'grid' ? (
           <GridView
-            volunteerShifts={volunteerShifts as any} // 🎯 CORRECTION: Cast temporaire
+            volunteerShifts={volunteerShifts as any}
             language={language}
             volunteerSignups={volunteerSignups}
             currentUser={currentUser}
@@ -1479,7 +1278,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
             onExportGrid={handleExportGrid}
           />
         ) : (
-          // Vue liste avec affichage des affectations - 🎯 NETTOYAGE: Progress bar supprimée pour bénévoles
+          // Vue liste avec affichage des affectations
           <div className="grid gap-6">
             {(() => {
               let sortedShifts = [...volunteerShifts];
@@ -1682,7 +1481,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
                         </div>
                       </div>
 
-                      {/* 🎯 NETTOYAGE: Progress bar - seulement pour organisateurs */}
+                      {/* Progress bar - seulement pour organisateurs */}
                       {isOrganizer && (
                         <div className="bg-gray-700/50 rounded-xl p-4">
                           <div className="flex justify-between items-center mb-3">
@@ -1714,7 +1513,7 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           </div>
         )}
 
-        {/* 🎯 NOUVEAU: Modal de gestion des comptes bénévoles */}
+        {/* Modal de gestion des comptes bénévoles */}
         <VolunteerAccountsModal
           isOpen={showVolunteerAccountsModal}
           onClose={() => setShowVolunteerAccountsModal(false)}
@@ -1724,7 +1523,6 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           volunteerSignups={volunteerSignups}
         />
 
-        {/* Toutes les autres modals... */}
         {/* Modal Volunteer Dashboard */}
         {showVolunteerDashboard && currentUser && (
           <VolunteerDashboard
@@ -1874,7 +1672,102 @@ const VolunteersPage: React.FC<VolunteersPageProps> = ({
           </div>
         )}
 
-        {/* Toutes les autres modals existantes... */}
+        {/* Modal de conflit d'horaires */}
+        {showOverlapModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-8 w-full max-w-2xl">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold text-orange-400">{txt.overlapDetected}</h2>
+                <button onClick={handleCancelSignupDueToConflict} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-gray-300">{txt.overlapWarning}</p>
+                
+                {overlapConflicts.map((conflict, index) => (
+                  <div key={index} className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-6">
+                    <h3 className="text-orange-300 font-bold mb-2">{txt.overlapDetails}</h3>
+                    <div className="space-y-2 text-gray-300">
+                      <p><strong>{txt.conflictShift}</strong> {conflict.overlapDetails}</p>
+                      <p><strong>{txt.conflictDate}</strong> {conflict.conflictingShift.shift_date}</p>
+                      <p><strong>{txt.conflictTime}</strong> {conflict.conflictingShift.start_time} - {conflict.conflictingShift.end_time}</p>
+                      <p><strong>Type:</strong> {conflict.overlapType === 'complete' ? txt.overlapComplete : txt.overlapPartial}</p>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleCancelSignupDueToConflict}
+                    className="flex-1 py-3 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-all duration-300"
+                  >
+                    {txt.cancelSignup}
+                  </button>
+                  <button
+                    onClick={handleContinueAnywaySignup}
+                    className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all duration-300"
+                  >
+                    {txt.continueAnyway}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de limite d'heures */}
+        {showHourLimitModal && hourLimitWarning && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-600/30 rounded-3xl p-8 w-full max-w-2xl">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-3xl font-bold text-yellow-400">{txt.hourLimitWarning}</h2>
+                <button onClick={handleCancelSignupDueToHourLimit} className="text-gray-400 hover:text-white p-2 hover:bg-gray-700/50 rounded-full transition-all duration-200">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-gray-300">
+                  {txt.hourLimitMessage
+                    .replace('{current}', hourLimitWarning.currentHours.toString())
+                    .replace('{additional}', hourLimitWarning.newHours.toString())
+                    .replace('{total}', hourLimitWarning.totalHours.toString())
+                    .replace('{limit}', hourLimitWarning.limit.toString())}
+                </p>
+                
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6">
+                  <div className="grid grid-cols-2 gap-4 text-gray-300">
+                    <div>
+                      <p><strong>Heures actuelles:</strong> {hourLimitWarning.currentHours}h</p>
+                      <p><strong>Heures de ce créneau:</strong> {hourLimitWarning.newHours}h</p>
+                    </div>
+                    <div>
+                      <p><strong>Total:</strong> {hourLimitWarning.totalHours}h</p>
+                      <p><strong>Limite:</strong> {hourLimitWarning.limit}h</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={handleCancelSignupDueToHourLimit}
+                    className="flex-1 py-3 bg-gray-600 text-white rounded-xl font-bold hover:bg-gray-700 transition-all duration-300"
+                  >
+                    {txt.cancelSignup}
+                  </button>
+                  <button
+                    onClick={handleContinueAnywayHourLimit}
+                    className="flex-1 py-3 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 transition-all duration-300"
+                  >
+                    {txt.continueAnyway}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

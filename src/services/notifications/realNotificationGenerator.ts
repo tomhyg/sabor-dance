@@ -1,4 +1,4 @@
-// src/services/notifications/realNotificationGenerator.ts
+// src/services/notifications/realNotificationGenerator.ts - VERSION CORRIGÉE
 import { NotificationService, UserRole } from './notificationService';
 import { volunteerService } from '../volunteerService';
 import { teamService } from '../teamService';
@@ -14,21 +14,21 @@ export class RealNotificationGenerator {
     private options: NotificationGeneratorOptions
   ) {}
 
-  // 🔄 GÉNÉRATION COMPLÈTE DEPUIS LE BACKEND
+  // 🔄 COMPLETE GENERATION FROM BACKEND
   async generateAllNotifications(userRole: UserRole) {
-    console.log(`🔔 Génération notifications RÉELLES pour ${userRole}`, this.options);
+    console.log(`🔔 Generating REAL notifications for ${userRole}`, this.options);
 
     try {
-      // 📊 Charger les données réelles depuis Supabase
+      // 📊 Load real data from Supabase
       const [shiftsData, teamsData] = await Promise.all([
         this.loadShiftsData(),
         this.loadTeamsData()
       ]);
 
-      // 🔄 Effacer les anciennes notifications
-      this.notificationService.clearAllTasks(userRole);
+      // 🔄 Clear old notifications - CORRECTION: utiliser clearTasks au lieu de clearAllTasks
+      this.notificationService.clearTasks(userRole);
 
-      // 🎯 Générer selon le rôle
+      // 🎯 Generate by role
       switch (userRole) {
         case 'admin':
         case 'organizer':
@@ -40,18 +40,18 @@ export class RealNotificationGenerator {
         case 'team_director':
           await this.generateTeamDirectorNotifications(userRole, teamsData);
           break;
-        case 'assistant':
-          await this.generateAssistantNotifications(userRole, shiftsData, teamsData);
-          break;
+        // case 'assistant': - CORRECTION: Commenté car non défini dans UserRole
+        //   await this.generateAssistantNotifications(userRole, shiftsData, teamsData);
+        //   break;
       }
 
-      console.log(`✅ Notifications générées pour ${userRole}`);
+      console.log(`✅ Notifications generated for ${userRole}`);
     } catch (error) {
-      console.error('❌ Erreur génération notifications:', error);
+      console.error('❌ Error generating notifications:', error);
     }
   }
 
-  // 📊 CHARGEMENT DES DONNÉES SHIFTS
+  // 📊 LOAD SHIFTS DATA
   private async loadShiftsData() {
     try {
       const { data: shifts, error } = await volunteerService.getShifts(this.options.eventId);
@@ -59,12 +59,12 @@ export class RealNotificationGenerator {
       if (error) throw error;
       return shifts || [];
     } catch (error) {
-      console.error('Erreur chargement shifts:', error);
+      console.error('Error loading shifts:', error);
       return [];
     }
   }
 
-  // 📊 CHARGEMENT DES DONNÉES ÉQUIPES
+  // 📊 LOAD TEAMS DATA
   private async loadTeamsData() {
     try {
       const result = await teamService.getTeamsByEvent(this.options.eventId);
@@ -72,14 +72,14 @@ export class RealNotificationGenerator {
       if (!result.success) throw new Error(result.message);
       return result.data || [];
     } catch (error) {
-      console.error('Erreur chargement équipes:', error);
+      console.error('Error loading teams:', error);
       return [];
     }
   }
 
-  // 👨‍💼 NOTIFICATIONS ORGANIZER/ADMIN
+  // 👨‍💼 ORGANIZER/ADMIN NOTIFICATIONS
   private async generateOrganizerNotifications(role: UserRole, shifts: any[], teams: any[]) {
-    // 🚨 CRÉNEAUX CRITIQUES SANS BÉNÉVOLES
+    // 🚨 CRITICAL SHIFTS WITHOUT VOLUNTEERS
     const emptyShifts = shifts.filter(shift => 
       shift.status === 'live' && 
       (shift.current_volunteers === 0 || !shift.current_volunteers)
@@ -89,12 +89,11 @@ export class RealNotificationGenerator {
       this.notificationService.addTask(role, {
         type: 'critical',
         category: 'volunteer',
-        title: `${emptyShifts.length} créneaux sans bénévoles`,
+        title: `${emptyShifts.length} shifts without volunteers`,
         description: `URGENT: ${emptyShifts.slice(0, 3).map(s => s.title).join(', ')}${emptyShifts.length > 3 ? '...' : ''}`,
         count: emptyShifts.length,
         urgency: 'high',
-        deadline: 'Action immédiate',
-        action: 'Assigner maintenant',
+        action: 'Assign now',
         icon: 'Users',
         color: 'red',
         relatedData: { 
@@ -104,7 +103,7 @@ export class RealNotificationGenerator {
       });
     }
 
-    // ⚠️ CRÉNEAUX SOUS-REMPLIS (<70%)
+    // ⚠️ UNDERSTAFFED SHIFTS (<70%)
     const underStaffedShifts = shifts.filter(shift => 
       shift.status === 'live' && 
       shift.max_volunteers > 0 &&
@@ -116,12 +115,11 @@ export class RealNotificationGenerator {
       this.notificationService.addTask(role, {
         type: 'urgent',
         category: 'volunteer',
-        title: `${underStaffedShifts.length} créneaux sous-remplis`,
-        description: `Créneaux à moins de 70% de capacité`,
+        title: `${underStaffedShifts.length} understaffed shifts`,
+        description: `Shifts at less than 70% capacity`,
         count: underStaffedShifts.length,
         urgency: 'medium',
-        deadline: 'À surveiller',
-        action: 'Voir détails',
+        action: 'View details',
         icon: 'Users',
         color: 'orange',
         relatedData: { 
@@ -137,7 +135,7 @@ export class RealNotificationGenerator {
       });
     }
 
-    // 🎵 ÉQUIPES SANS MUSIQUE
+    // 🎵 TEAMS WITHOUT MUSIC
     const teamsWithoutMusic = teams.filter(team => 
       ['submitted', 'approved'].includes(team.status) && 
       !team.music_file_url
@@ -147,12 +145,11 @@ export class RealNotificationGenerator {
       this.notificationService.addTask(role, {
         type: 'urgent',
         category: 'team',
-        title: `${teamsWithoutMusic.length} équipes sans musique`,
-        description: `Équipes approuvées qui n'ont pas encore uploadé leur musique`,
+        title: `${teamsWithoutMusic.length} teams without music`,
+        description: `Approved teams that haven't uploaded their music yet`,
         count: teamsWithoutMusic.length,
         urgency: 'high',
-        deadline: 'Deadline approche',
-        action: 'Contacter équipes',
+        action: 'Contact teams',
         icon: 'Music',
         color: 'red',
         relatedData: { 
@@ -168,19 +165,18 @@ export class RealNotificationGenerator {
       });
     }
 
-    // 📋 ÉQUIPES À APPROUVER
+    // 📋 TEAMS TO APPROVE
     const pendingTeams = teams.filter(team => team.status === 'submitted');
 
     if (pendingTeams.length > 0) {
       this.notificationService.addTask(role, {
-        type: 'action',
+        type: 'urgent', // CORRECTION: 'action' n'existe pas dans le type
         category: 'approval',
-        title: `${pendingTeams.length} équipes à examiner`,
-        description: `Nouvelles soumissions en attente d'approbation`,
+        title: `${pendingTeams.length} teams to review`,
+        description: `New submissions awaiting approval`,
         count: pendingTeams.length,
         urgency: 'medium',
-        deadline: 'À traiter sous 48h',
-        action: 'Examiner',
+        action: 'Review',
         icon: 'FileText',
         color: 'blue',
         relatedData: { 
@@ -195,19 +191,18 @@ export class RealNotificationGenerator {
       });
     }
 
-    // 📊 BROUILLONS À PUBLIER
+    // 📊 DRAFTS TO PUBLISH
     const draftShifts = shifts.filter(shift => shift.status === 'draft');
 
     if (draftShifts.length > 0) {
       this.notificationService.addTask(role, {
         type: 'reminder',
-        category: 'event',
-        title: `${draftShifts.length} créneaux en brouillon`,
-        description: `Créneaux prêts à être publiés`,
+        category: 'shift', // CORRECTION: 'event' changé en 'shift'
+        title: `${draftShifts.length} draft shifts`,
+        description: `Shifts ready to be published`,
         count: draftShifts.length,
         urgency: 'low',
-        deadline: 'Quand prêt',
-        action: 'Publier',
+        action: 'Publish',
         icon: 'Calendar',
         color: 'blue',
         relatedData: { 
@@ -217,7 +212,7 @@ export class RealNotificationGenerator {
       });
     }
 
-    // 📈 STATISTIQUES GÉNÉRALES
+    // 📈 GENERAL STATISTICS
     const totalVolunteersNeeded = shifts
       .filter(s => s.status === 'live')
       .reduce((sum, s) => sum + s.max_volunteers, 0);
@@ -231,14 +226,13 @@ export class RealNotificationGenerator {
 
     if (fillRate < 80) {
       this.notificationService.addTask(role, {
-        type: 'info',
-        category: 'event',
-        title: `Taux de remplissage: ${fillRate}%`,
-        description: `${totalVolunteersAssigned}/${totalVolunteersNeeded} bénévoles assignés`,
+        type: 'reminder', // CORRECTION: 'info' changé en 'reminder'
+        category: 'shift', // CORRECTION: 'event' changé en 'shift'
+        title: `Fill rate: ${fillRate}%`,
+        description: `${totalVolunteersAssigned}/${totalVolunteersNeeded} volunteers assigned`,
         count: 1,
         urgency: fillRate < 60 ? 'high' : 'medium',
-        deadline: 'Objectif 80%+',
-        action: 'Voir dashboard',
+        action: 'View dashboard',
         icon: 'BarChart3',
         color: fillRate < 60 ? 'red' : 'orange',
         relatedData: { 
@@ -248,9 +242,9 @@ export class RealNotificationGenerator {
     }
   }
 
-  // 🙋‍♀️ NOTIFICATIONS BÉNÉVOLES
+  // 🙋‍♀️ VOLUNTEER NOTIFICATIONS
   private async generateVolunteerNotifications(role: UserRole, shifts: any[]) {
-    // Récupérer les inscriptions du bénévole
+    // Get volunteer signups
     let userSignups: any[] = [];
     if (this.options.currentUserId) {
       try {
@@ -260,11 +254,11 @@ export class RealNotificationGenerator {
         );
         userSignups = data || [];
       } catch (error) {
-        console.error('Erreur chargement inscriptions:', error);
+        console.error('Error loading signups:', error);
       }
     }
 
-    // 🆘 CRÉNEAUX AYANT BESOIN D'AIDE
+    // 🆘 SHIFTS NEEDING HELP
     const urgentShifts = shifts.filter(shift => 
       shift.status === 'live' && 
       shift.max_volunteers > 0 &&
@@ -273,14 +267,13 @@ export class RealNotificationGenerator {
 
     if (urgentShifts.length > 0) {
       this.notificationService.addTask(role, {
-        type: 'opportunity',
+        type: 'urgent', // CORRECTION: 'opportunity' changé en 'urgent'
         category: 'shift',
-        title: `${urgentShifts.length} créneaux ont besoin d'aide`,
-        description: `Des créneaux importants manquent de bénévoles. Votre aide est précieuse !`,
+        title: `${urgentShifts.length} shifts need help`,
+        description: `Important shifts are short on volunteers. Your help is valuable!`,
         count: urgentShifts.length,
         urgency: 'medium',
-        deadline: 'Inscrivez-vous !',
-        action: 'Voir créneaux',
+        action: 'View shifts',
         icon: 'Users',
         color: 'green',
         relatedData: { 
@@ -296,7 +289,7 @@ export class RealNotificationGenerator {
       });
     }
 
-    // ⏰ RAPPELS MES CRÉNEAUX
+    // ⏰ MY SHIFTS REMINDERS
     const myUpcomingShifts = userSignups
       .filter(signup => ['signed_up', 'confirmed'].includes(signup.status))
       .map(signup => shifts.find(shift => shift.id === signup.shift_id))
@@ -312,12 +305,11 @@ export class RealNotificationGenerator {
       this.notificationService.addTask(role, {
         type: 'reminder',
         category: 'shift',
-        title: `${myUpcomingShifts.length} créneaux cette semaine`,
-        description: `N'oubliez pas vos créneaux à venir`,
+        title: `${myUpcomingShifts.length} shifts this week`,
+        description: `Don't forget your upcoming shifts`,
         count: myUpcomingShifts.length,
         urgency: 'medium',
-        deadline: 'Prochains jours',
-        action: 'Voir mes créneaux',
+        action: 'View my shifts',
         icon: 'Clock',
         color: 'blue',
         relatedData: { 
@@ -331,22 +323,21 @@ export class RealNotificationGenerator {
       });
     }
 
-    // 📊 PROGRÈS HEURES REQUISES
+    // 📊 REQUIRED HOURS PROGRESS
     const eventData = await this.getEventRequirements();
     const completedHours = this.calculateCompletedHours(userSignups, shifts);
-    const requiredHours = eventData?.required_volunteer_hours || 8;
+    const requiredHours = eventData?.required_volunteer_hours || 9;
 
     if (completedHours < requiredHours) {
       const remainingHours = requiredHours - completedHours;
       this.notificationService.addTask(role, {
-        type: 'info',
-        category: 'hours',
-        title: `${remainingHours}h restantes`,
-        description: `Vous avez complété ${completedHours}h sur ${requiredHours}h requises`,
+        type: 'reminder', // CORRECTION: 'info' changé en 'reminder'
+        category: 'shift', // CORRECTION: 'hours' changé en 'shift'
+        title: `${remainingHours}h remaining`,
+        description: `You've completed ${completedHours}h out of ${requiredHours}h required`,
         count: 1,
         urgency: remainingHours > 4 ? 'low' : 'medium',
-        deadline: remainingHours > 4 ? 'Pas urgent' : 'Bientôt requis',
-        action: 'Voir créneaux disponibles',
+        action: 'View available shifts',
         icon: 'Clock',
         color: remainingHours > 4 ? 'blue' : 'orange',
         relatedData: { 
@@ -356,15 +347,15 @@ export class RealNotificationGenerator {
     }
   }
 
-  // 💃 NOTIFICATIONS TEAM DIRECTOR
+  // 💃 TEAM DIRECTOR NOTIFICATIONS
   private async generateTeamDirectorNotifications(role: UserRole, teams: any[]) {
-    // Filtrer les équipes du directeur actuel
+    // Filter teams for current director
     const myTeams = teams.filter(team => 
       team.created_by === this.options.currentUserId || 
       team.director_email === this.getCurrentUserEmail()
     );
 
-    // 🎵 ÉQUIPES SANS MUSIQUE
+    // 🎵 TEAMS WITHOUT MUSIC
     const teamsNeedingMusic = myTeams.filter(team => 
       ['draft', 'submitted'].includes(team.status) && !team.music_file_url
     );
@@ -372,32 +363,30 @@ export class RealNotificationGenerator {
     teamsNeedingMusic.forEach(team => {
       this.notificationService.addTask(role, {
         type: 'urgent',
-        category: 'submission',
-        title: 'Musique manquante',
-        description: `Votre équipe "${team.team_name}" doit soumettre sa musique`,
+        category: 'team', // CORRECTION: 'submission' changé en 'team'
+        title: 'Missing music',
+        description: `Your team "${team.team_name}" needs to submit their music`,
         count: 1,
         urgency: 'high',
-        deadline: 'Deadline proche',
-        action: 'Uploader musique',
+        action: 'Upload music',
         icon: 'Music',
         color: 'red',
         relatedData: { teamId: team.id, teamName: team.team_name }
       });
     });
 
-    // 📋 ÉQUIPES EN BROUILLON
+    // 📋 DRAFT TEAMS
     const draftTeams = myTeams.filter(team => team.status === 'draft');
 
     if (draftTeams.length > 0) {
       this.notificationService.addTask(role, {
         type: 'reminder',
-        category: 'submission',
-        title: `${draftTeams.length} équipe(s) en brouillon`,
-        description: 'Finalisez et soumettez vos équipes pour approbation',
+        category: 'team', // CORRECTION: 'submission' changé en 'team'
+        title: `${draftTeams.length} draft team(s)`,
+        description: 'Finalize and submit your teams for approval',
         count: draftTeams.length,
         urgency: 'medium',
-        deadline: 'Avant deadline',
-        action: 'Finaliser équipes',
+        action: 'Finalize teams',
         icon: 'FileText',
         color: 'orange',
         relatedData: { 
@@ -406,19 +395,18 @@ export class RealNotificationGenerator {
       });
     }
 
-    // ✅ ÉQUIPES APPROUVÉES
+    // ✅ APPROVED TEAMS
     const approvedTeams = myTeams.filter(team => team.status === 'approved');
 
     if (approvedTeams.length > 0) {
       this.notificationService.addTask(role, {
-        type: 'info',
-        category: 'status',
-        title: `${approvedTeams.length} équipe(s) approuvée(s)`,
-        description: 'Félicitations ! Vos équipes sont confirmées',
+        type: 'reminder', // CORRECTION: 'info' changé en 'reminder'
+        category: 'team', // CORRECTION: 'status' changé en 'team'
+        title: `${approvedTeams.length} approved team(s)`,
+        description: 'Congratulations! Your teams are confirmed',
         count: approvedTeams.length,
         urgency: 'low',
-        deadline: 'Aucune action requise',
-        action: 'Voir détails',
+        action: 'View details',
         icon: 'CheckCircle',
         color: 'green',
         relatedData: { 
@@ -428,57 +416,33 @@ export class RealNotificationGenerator {
     }
   }
 
-  // 👥 NOTIFICATIONS ASSISTANT
-  private async generateAssistantNotifications(role: UserRole, shifts: any[], teams: any[]) {
-    // Mix entre organizer et volunteer selon les responsabilités
-    const urgentShifts = shifts.filter(shift => 
-      shift.status === 'live' && (shift.current_volunteers || 0) === 0
-    );
-
-    if (urgentShifts.length > 0) {
-      this.notificationService.addTask(role, {
-        type: 'urgent',
-        category: 'volunteer',
-        title: `${urgentShifts.length} créneaux critiques`,
-        description: 'Créneaux sans bénévoles nécessitant attention',
-        count: urgentShifts.length,
-        urgency: 'high',
-        deadline: 'À traiter',
-        action: 'Voir créneaux',
-        icon: 'Users',
-        color: 'orange',
-        relatedData: { shiftIds: urgentShifts.map(s => s.id) }
-      });
-    }
-  }
-
-  // 🔧 MÉTHODES UTILITAIRES
+  // 🔧 UTILITY METHODS
   private async getEventRequirements() {
-    // TODO: Implémenter récupération depuis events table
-    return { required_volunteer_hours: 8 };
+    // TODO: Implement retrieval from events table
+    return { required_volunteer_hours: 9 };
   }
 
   private calculateCompletedHours(signups: any[], shifts: any[]): number {
     return signups
-      .filter(signup => signup.status === 'checked_in')
+      .filter(signup => ['signed_up', 'confirmed', 'checked_in'].includes(signup.status)) // CORRECTION: utiliser la même logique que notificationService
       .map(signup => {
         const shift = shifts.find(s => s.id === signup.shift_id);
         if (!shift) return 0;
         
         const start = new Date(`2000-01-01T${shift.start_time}`);
         const end = new Date(`2000-01-01T${shift.end_time}`);
-        return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // heures
+        return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // hours
       })
       .reduce((sum, hours) => sum + hours, 0);
   }
 
   private getCurrentUserEmail(): string {
-    // TODO: Récupérer depuis le contexte d'auth
+    // TODO: Get from auth context
     return '';
   }
 }
 
-// 🔄 FONCTION D'EXPORT POUR INTÉGRATION
+// 🔄 EXPORT FUNCTION FOR INTEGRATION
 export const generateRealNotifications = async (
   notificationService: NotificationService,
   userRole: UserRole,
